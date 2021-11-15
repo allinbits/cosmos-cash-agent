@@ -40,14 +40,25 @@ const (
 	MsgVCData
 	//MsgContactAdded  used when a new contact si added
 	MsgContactAdded
+	// MsgUpdateContacts is used when updating all contacts in the list called every 30 seconds
+	// is updated by the aries connection data store
+	MsgUpdateContacts
+	// MsgUpdateContact used when updating a connection by connection ID
+	MsgUpdateContact
 	// MsgTextReceived used when receiving messages
 	MsgTextReceived
 	// MsgSendText used to send text messages
 	MsgSendText
 	// MsgSaveState persist state to the disk
 	MsgSaveState
+	// MsgCreateInvitation creates an invitation to be used in another aries client
+	MsgCreateInvitation
 	// MsgHandleInvitation handles a DIDExchange invitation
 	MsgHandleInvitation
+	// MsgAddMediator adds a contact as a mediator this enables message routing between edge clients
+	MsgAddMediator
+	// MsgGetConnectionStatus gets the connection status of a contact
+	MsgGetConnectionStatus
 )
 
 // AppMsg are messages that are exchanged within the app

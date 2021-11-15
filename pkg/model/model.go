@@ -3,6 +3,8 @@ package model
 import (
 	"fmt"
 	"time"
+
+	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 )
 
 // TextMessage a text message exchanged between a contact and the user
@@ -33,16 +35,18 @@ func NewTextMessage(channel, from, content string) TextMessage {
 
 // Contact represent SSI contact
 type Contact struct {
-	DID     string        `json:"did"`
-	Address string        `json:"address"`
-	Name    string        `json:"name"`
-	Texts   []TextMessage `json:"texts"`
+	DID        string                 `json:"did"`
+	Address    string                 `json:"address"`
+	Name       string                 `json:"name"`
+	Connection didexchange.Connection `json:"connection"`
+	Texts      []TextMessage          `json:"texts"`
 }
 
-func NewContact(name, didID string) Contact {
+func NewContact(name, didID string, connection didexchange.Connection) Contact {
 	return Contact{
-		DID:   didID,
-		Name:  name,
-		Texts: make([]TextMessage, 0),
+		DID:        didID,
+		Name:       name,
+		Connection: connection,
+		Texts:      make([]TextMessage, 0),
 	}
 }

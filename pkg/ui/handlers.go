@@ -98,12 +98,28 @@ func dispatcher(in chan config.AppMsg) {
 			}
 			marketplaces.Set(mks)
 		case config.MsgContactAdded:
-			contact := m.Payload.(model.Contact)
-			state.Contacts[contact.Name] = contact
-			// updae the model
-			contacts.Append(contact.Name)
+			newContact := m.Payload.(*didexchange.Connection)
+
+			contact := model.NewContact(newContact.TheirLabel, newContact.TheirDID, *newContact)
+			state.Contacts[contact.Connection.ConnectionID] = contact
+			// update the model
+			contacts.Append(newContact.ConnectionID)
+
 			// request state save
-			appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgSaveState, nil)
+			//appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgSaveState, nil)
+
+		case config.MsgUpdateContacts:
+			allContacts := m.Payload.([]*didexchange.Connection)
+			cons, _ := contacts.Get()
+			for _, contact := range allContacts {
+				if !stringInSlice(contact.ConnectionID, cons) {
+					contacts.Append(contact.ConnectionID)
+				}
+			}
+		case config.MsgUpdateContact:
+			status := m.Payload.(string)
+			messages.Append(status)
+
 		case config.MsgTextReceived:
 			tm := m.Payload.(model.TextMessage)
 			contact, _ := state.Contacts[tm.Channel]
@@ -118,12 +134,17 @@ func dispatcher(in chan config.AppMsg) {
 			if tm.Channel == channel || tm.From == appCfg.ControllerName {
 				messages.Append(tm.String())
 			}
-		case config.MsgHandleInvitation:
-			newContact := m.Payload.(*didexchange.Connection)
-			contacts.Append(newContact.TheirLabel + " " + newContact.ConnectionID)
-
 		}
 	}
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
 
 // balancesSelected gets triggered when an item is selected in the balance list
@@ -164,7 +185,6 @@ func contactSelected(iID widget.ListItemID) {
 func executeCmd() {
 	val, _ := userCommand.Get()
 	log.WithFields(log.Fields{"command": val}).Infoln("user command received")
-	// TODO: below the logic to process messages
 
 	// parse the command
 	s := strings.Split(val, " ")
@@ -178,10 +198,24 @@ func executeCmd() {
 			switch s[2] {
 			case "handle":
 			case "h":
-				ns := strings.Join(s, " ")
-				log.Infoln("command handler", ns)
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgHandleInvitation, s[3])
+			case "create":
+			case "c":
+				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgCreateInvitation, "")
+			case "router":
+			case "r":
+				contact, _ := contacts.GetValue(state.SelectedContact)
+				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgCreateInvitation, contact)
 			}
+		case "mediator":
+		case "m":
+			contact, _ := contacts.GetValue(state.SelectedContact)
+			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgAddMediator, contact)
+		case "status":
+		case "s":
+			contact, _ := contacts.GetValue(state.SelectedContact)
+			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgGetConnectionStatus, contact)
+
 		}
 	case "chain":
 		//hub.Notification <- "chain"
@@ -192,12 +226,12 @@ func executeCmd() {
 	if state.SelectedContact < 0 {
 		return
 	}
-	channel, _ := contacts.GetValue(state.SelectedContact)
+	//channel, _ := contacts.GetValue(state.SelectedContact)
 	// send it as a text received
-	appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(
-		config.MsgTextReceived,
-		model.NewTextMessage(channel, appCfg.ControllerName, val),
-	)
+	//	appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(
+	//		config.MsgTextReceived,
+	//		model.NewTextMessage(channel, appCfg.ControllerName, val),
+	//	)
 	// reset the command
 	userCommand.Set("")
 }

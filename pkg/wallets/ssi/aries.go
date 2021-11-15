@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/allinbits/cosmos-cash-agent/pkg/config"
@@ -154,9 +155,9 @@ func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
 }
 
 func (cw *SSIWallet) HandleInvitation(
-	invitation *de.CreateInvitationResponse,
+	invitation *didexchange.Invitation,
 ) *didexchange.Connection {
-	connectionID, err := cw.didExchangeClient.HandleInvitation(invitation.Invitation)
+	connectionID, err := cw.didExchangeClient.HandleInvitation(invitation)
 	if err != nil {
 		panic(err)
 	}
@@ -169,6 +170,17 @@ func (cw *SSIWallet) HandleInvitation(
 
 	return connection
 
+}
+
+func (cw *SSIWallet) AddMediator(
+	connectionID string,
+) {
+	err := cw.routeClient.Register(connectionID)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Infoln("Mediator created")
 }
 
 // Run should be called as a goroutine, the parameters are:
@@ -188,15 +200,20 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 	}()
 
 	// send updates about contacts
-	t1 := time.NewTicker(30 * time.Second)
+	t1 := time.NewTicker(10 * time.Second)
 	go func() {
 		for {
 			// TODO handle contacts
+			connections, err := cw.didExchangeClient.QueryConnections(&didexchange.QueryConnectionsParams{})
+			if err != nil {
+				panic(err)
+			}
+			log.Infoln("queried connections", connections)
+			hub.Notification <- config.NewAppMsg(config.MsgUpdateContacts, connections)
 			<-t1.C
 		}
 	}()
 
-	// here an example how to listen to internal messages
 	for {
 		m := <-hub.AgentWalletIn
 		log.Debugln("received message", m)
@@ -210,23 +227,96 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 			// always send to the notification channel for the UI
 			// handle the notification in the ui/handlers.go dispatcher function
 			hub.Notification <- config.NewAppMsg(m.Typ, vc)
+		case config.MsgCreateInvitation:
+			log.Debugln(
+				"AgentWallet received MsgHandleInvitation msg for ",
+				m.Payload.(string),
+			)
+			// TODO: validate invitation is correct
+			var inv didexchange.Invitation
+			var jsonStr string
+			if m.Payload.(string) != "" {
+				inv, err := cw.didExchangeClient.CreateInvitation(
+					"bob-alice-connection-1",
+					didexchange.WithRouterConnectionID(m.Payload.(string)),
+				)
+				if err != nil {
+					panic(err)
+				}
+				jsonStr, _ := json.Marshal(inv)
+				fmt.Println(string(jsonStr))
+			} else {
+				inv, err := cw.didExchangeClient.CreateInvitation(
+					"bob-alice-conn-direct",
+				)
+				if err != nil {
+					panic(err)
+				}
+				jsonStr, _ := json.Marshal(inv)
+				fmt.Println(string(jsonStr))
+			}
+			fmt.Print(inv)
+
+			hub.Notification <- config.NewAppMsg(config.MsgUpdateContact, string(jsonStr))
 		case config.MsgHandleInvitation:
 			log.Debugln(
 				"AgentWallet received MsgHandleInvitation msg for ",
 				m.Payload.(string),
 			)
 			var invite de.CreateInvitationResponse
-			reqURL = fmt.Sprint(
-				cw.cloudAgentURL,
-				"/connections/create-invitation?&label=BobMediatorEdgeAgent",
-			)
-			post(client, reqURL, nil, &invite)
+
+			err := json.Unmarshal([]byte(m.Payload.(string)), &invite.Invitation)
+			if err != nil {
+				println(err)
+			}
+
+			if invite.Invitation == nil {
+				reqURL = fmt.Sprint(
+					"http://localhost:8090",
+					"/connections/create-invitation?&label=BobMediatorEdgeAgent",
+				)
+				post(client, reqURL, nil, &invite)
+			}
 
 			// TODO: validate invitation is correct
-			connection := cw.HandleInvitation(&invite)
+			connection := cw.HandleInvitation(invite.Invitation)
 
-			hub.Notification <- config.NewAppMsg(config.MsgHandleInvitation, connection)
+			hub.Notification <- config.NewAppMsg(config.MsgContactAdded, connection)
+		case config.MsgAddMediator:
+			log.Debugln(
+				"AgentWallet received MsgHandleInvitation msg for ",
+				m.Payload.(string),
+			)
 
+			// TODO: validate invitation is correct
+			cw.AddMediator(m.Payload.(string))
+
+		case config.MsgGetConnectionStatus:
+			connID := m.Payload.(string)
+			log.Debugln(
+				"AgentWallet received MsgHandleInvitation msg for ",
+				connID,
+			)
+			var sb strings.Builder
+
+			// TODO: validate invitation is correct
+			connection, err := cw.didExchangeClient.GetConnection(connID)
+			if err != nil {
+				panic(err)
+			}
+			sb.WriteString("ConnectionID: " + connection.ConnectionID + "\n")
+			sb.WriteString("Status: " + connection.State + "\n")
+			sb.WriteString("Label: " + connection.TheirLabel + "\n")
+			routerConfig, err := cw.routeClient.GetConfig(connID)
+			log.Info(routerConfig.Endpoint())
+			log.Info(routerConfig.Keys())
+			if routerConfig != nil {
+				sb.WriteString("Mediator: This connection is a mediator" + "\n")
+				sb.WriteString("Endpoint: " + routerConfig.Endpoint() + "\n")
+				sb.WriteString("Keys: " + strings.Join(routerConfig.Keys(), " ") + "\n")
+			}
+
+			hub.Notification <- config.NewAppMsg(config.MsgUpdateContact, sb.String())
 		}
 	}
 }
