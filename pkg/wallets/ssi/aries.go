@@ -310,6 +310,21 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 					panic(err)
 				}
 			}
+		case config.MsgApproveRequest:
+			log.Debugln(
+				"AgentWallet received MsgHandleInvitation msg for ",
+				m.Payload.(string),
+			)
+			params := strings.Split(m.Payload.(string), " ")
+			err := cw.didExchangeClient.AcceptExchangeRequest(
+				params[0],
+				"",
+				"new-wth",
+				didexchange.WithRouterConnections(params[1]),
+			)
+			if err != nil {
+				panic(err)
+			}
 
 		case config.MsgAddMediator:
 			log.Debugln(

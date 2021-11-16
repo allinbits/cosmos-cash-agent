@@ -57,6 +57,8 @@ const (
 	MsgHandleInvitation
 	// MsgApproveInvitation approves an invitation needed for edge to edge mediator/routing connections
 	MsgApproveInvitation
+	// MsgApproveRequest approves a request for edge to edge mediator/routing connections
+	MsgApproveRequest
 	// MsgAddMediator adds a contact as a mediator this enables message routing between edge clients
 	MsgAddMediator
 	// MsgGetConnectionStatus gets the connection status of a contact

@@ -196,15 +196,17 @@ func executeCmd() {
 		case "invitation":
 		case "i":
 			switch s[2] {
+			case "final":
+			case "f":
+				contact, _ := contacts.GetValue(state.SelectedContact)
+				payload := contact + " " + s[3]
+				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgApproveRequest, payload)
 			case "handle":
 			case "h":
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgHandleInvitation, s[3])
 			case "approve":
 			case "a":
 				contact, _ := contacts.GetValue(state.SelectedContact)
-				//		if len(s) > 3 {
-				//			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgApproveInvitation, contact+" "+s[3])
-				//		}
 				payload := contact + " " + s[3]
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgApproveInvitation, payload)
 			case "create":
