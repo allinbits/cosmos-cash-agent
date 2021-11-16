@@ -58,9 +58,10 @@ func createDIDExchangeClient(ctx *context.Provider) *didexchange.Client {
 		panic(err)
 	}
 
-	go func() {
-		service.AutoExecuteActionEvent(actions)
-	}()
+	// NOTE: no auto execute
+	//	go func() {
+	//		service.AutoExecuteActionEvent(actions)
+	//	}()
 
 	return didExchange
 }
@@ -167,6 +168,7 @@ func (cw *SSIWallet) HandleInvitation(
 		panic(err)
 	}
 	log.Infoln("Connection created", connection)
+	fmt.Println(connectionID)
 
 	return connection
 
@@ -282,6 +284,33 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 			connection := cw.HandleInvitation(invite.Invitation)
 
 			hub.Notification <- config.NewAppMsg(config.MsgContactAdded, connection)
+		case config.MsgApproveInvitation:
+			log.Debugln(
+				"AgentWallet received MsgHandleInvitation msg for ",
+				m.Payload.(string),
+			)
+			params := strings.Split(m.Payload.(string), " ")
+
+			if len(params) > 1 && params[1] != "" {
+				err := cw.didExchangeClient.AcceptInvitation(
+					params[0],
+					"",
+					"new",
+					didexchange.WithRouterConnections(params[1]))
+				if err != nil {
+					panic(err)
+				}
+			} else {
+				err := cw.didExchangeClient.AcceptInvitation(
+					params[0],
+					"",
+					"new-wth",
+				)
+				if err != nil {
+					panic(err)
+				}
+			}
+
 		case config.MsgAddMediator:
 			log.Debugln(
 				"AgentWallet received MsgHandleInvitation msg for ",
@@ -308,9 +337,9 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 			sb.WriteString("Status: " + connection.State + "\n")
 			sb.WriteString("Label: " + connection.TheirLabel + "\n")
 			routerConfig, err := cw.routeClient.GetConfig(connID)
-			log.Info(routerConfig.Endpoint())
-			log.Info(routerConfig.Keys())
 			if routerConfig != nil {
+				log.Info(routerConfig.Endpoint())
+				log.Info(routerConfig.Keys())
 				sb.WriteString("Mediator: This connection is a mediator" + "\n")
 				sb.WriteString("Endpoint: " + routerConfig.Endpoint() + "\n")
 				sb.WriteString("Keys: " + strings.Join(routerConfig.Keys(), " ") + "\n")
