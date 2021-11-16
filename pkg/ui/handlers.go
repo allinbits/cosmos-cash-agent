@@ -225,6 +225,11 @@ func executeCmd() {
 		case "s":
 			contact, _ := contacts.GetValue(state.SelectedContact)
 			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgGetConnectionStatus, contact)
+		case "chat":
+		case "c":
+			contact, _ := contacts.GetValue(state.SelectedContact)
+			payload := contact + " " + s[2]
+			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, payload)
 
 		}
 	case "chain":

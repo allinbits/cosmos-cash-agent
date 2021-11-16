@@ -29,6 +29,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type genericChatMsg struct {
+	ID      string   `json:"@id"`
+	Type    string   `json:"@type"`
+	Purpose []string `json:"~purpose"`
+	Message string   `json:"message"`
+	From    string   `json:"from"`
+}
+
 var (
 	w      *wallet.Wallet
 	client = &http.Client{}
@@ -90,6 +98,14 @@ func createMessagingClient(ctx *context.Provider) *messaging.Client {
 	registrar := msghandler.NewRegistrar()
 
 	msgClient, err := messaging.New(ctx, registrar, n)
+	if err != nil {
+		panic(err)
+	}
+	msgType := "https://didcomm.org/generic/1.0/message"
+	purpose := []string{"meeting", "appointment", "event"}
+	name := "chat"
+
+	err = msgClient.RegisterService(name, msgType, purpose...)
 	if err != nil {
 		panic(err)
 	}
@@ -361,6 +377,28 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 			}
 
 			hub.Notification <- config.NewAppMsg(config.MsgUpdateContact, sb.String())
+		case config.MsgSendText:
+			log.Debugln(
+				"AgentWallet received MsgHandleInvitation msg for ",
+				m.Payload.(string),
+			)
+
+			params := strings.Split(m.Payload.(string), " ")
+
+			var genericMsg genericChatMsg
+			genericMsg.ID = "12123123213213"
+			genericMsg.Type = "https://didcomm.org/generic/1.0/message"
+			genericMsg.Purpose = []string{"meeting"}
+			genericMsg.Message = params[1]
+			genericMsg.From = "Alice"
+
+			rawBytes, _ := json.Marshal(genericMsg)
+
+			resp, err := cw.messagingClient.Send(rawBytes, messaging.SendByConnectionID(params[0]))
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println(resp)
 		}
 	}
 }
