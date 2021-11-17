@@ -30,8 +30,8 @@ import (
 )
 
 type genericChatMsg struct {
-	ID      string   `json:"@id"`
-	Type    string   `json:"@type"`
+	ID      string   `json:"id"`
+	Type    string   `json:"type"`
 	Purpose []string `json:"~purpose"`
 	Message string   `json:"message"`
 	From    string   `json:"from"`
@@ -101,17 +101,20 @@ func createMessagingClient(ctx *context.Provider) *messaging.Client {
 	if err != nil {
 		panic(err)
 	}
+
+	//genericMsg.Type = "https://didcomm.org/generic/1.0/message"
 	msgType := "https://didcomm.org/generic/1.0/message"
 	purpose := []string{"meeting", "appointment", "event"}
-	name := "chat"
+	name := "generic-message"
 
 	err = msgClient.RegisterService(name, msgType, purpose...)
 	if err != nil {
 		panic(err)
 	}
+	services := msgClient.Services()
+	println(services[0])
 
 	return msgClient
-
 }
 
 func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
@@ -125,7 +128,7 @@ func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
 	transports = append(transports, outboundWs)
 
 	// resolver
-	httpVDR, err := httpbinding.New(cfg.CosmosDIDResolverURL,
+	httpVDR, err := httpbinding.New("http://localhost:2109/identifier/aries/",
 		httpbinding.WithAccept(func(method string) bool { return method == "cosmos" }))
 	if err != nil {
 		panic(err.Error())
@@ -136,6 +139,7 @@ func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
 		aries.WithStoreProvider(provider),
 		aries.WithProtocolStateStoreProvider(stateProvider),
 		aries.WithOutboundTransports(transports...),
+		//aries.WithMessageServiceProvider(),
 		aries.WithTransportReturnRoute("all"),
 		aries.WithVDR(httpVDR),
 		//	aries.WithVDR(CosmosVDR{}),
@@ -145,6 +149,11 @@ func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
 	if err != nil {
 		panic(err)
 	}
+
+	didExchangeClient := createDIDExchangeClient(ctx)
+	routeClient := createRoutingClient(ctx)
+	messagingClient := createMessagingClient(ctx)
+
 	// creating wallet profile using local KMS passphrase
 	err = wallet.CreateProfile(cfg.ControllerName, ctx, wallet.WithPassphrase(pass))
 	if err != nil {
@@ -156,10 +165,6 @@ func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
 	if err != nil {
 		panic(err)
 	}
-
-	didExchangeClient := createDIDExchangeClient(ctx)
-	routeClient := createRoutingClient(ctx)
-	messagingClient := createMessagingClient(ctx)
 
 	return &SSIWallet{
 		cloudAgentURL:     cfg.CloudAgentPublicURL,
@@ -291,7 +296,7 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 			if invite.Invitation == nil {
 				reqURL = fmt.Sprint(
 					"http://localhost:8090",
-					"/connections/create-invitation?&label=BobMediatorEdgeAgent",
+					"/connections/create-invitation?public=did:cosmos:net:cash:mediator9&label=BobMediatorEdgeAgent",
 				)
 				post(client, reqURL, nil, &invite)
 			}
