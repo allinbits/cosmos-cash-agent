@@ -52,6 +52,10 @@ type SSIWallet struct {
 	messagingClient   *messaging.Client
 }
 
+func (s SSIWallet) GetContext() *context.Provider {
+	return s.ctx
+}
+
 func createDIDExchangeClient(ctx *context.Provider) *didexchange.Client {
 	// create a new did exchange client
 	didExchange, err := didexchange.New(ctx)
@@ -128,7 +132,7 @@ func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
 	transports = append(transports, outboundWs)
 
 	// resolver
-	httpVDR, err := httpbinding.New("http://localhost:2109/identifier/aries/",
+	httpVDR, err := httpbinding.New(cfg.CosmosDIDResolverURL,
 		httpbinding.WithAccept(func(method string) bool { return method == "cosmos" }))
 	if err != nil {
 		panic(err.Error())
@@ -139,7 +143,6 @@ func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
 		aries.WithStoreProvider(provider),
 		aries.WithProtocolStateStoreProvider(stateProvider),
 		aries.WithOutboundTransports(transports...),
-		//aries.WithMessageServiceProvider(),
 		aries.WithTransportReturnRoute("all"),
 		aries.WithVDR(httpVDR),
 		//	aries.WithVDR(CosmosVDR{}),
@@ -295,10 +298,10 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 
 			if invite.Invitation == nil {
 				reqURL = fmt.Sprint(
-					"http://localhost:8090",
+					cw.cloudAgentURL,
 					"/connections/create-invitation?public=did:cosmos:net:cash:mediator9&label=BobMediatorEdgeAgent",
 				)
-				post(client, reqURL, nil, &invite)
+				post(client, reqURL, nil, &invite.Invitation)
 			}
 
 			// TODO: validate invitation is correct

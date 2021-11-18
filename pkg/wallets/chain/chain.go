@@ -2,9 +2,13 @@ package chain
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/json"
+
 	"fmt"
 	"github.com/allinbits/cosmos-cash-agent/pkg/config"
 	"github.com/allinbits/cosmos-cash-agent/pkg/helpers"
+	"github.com/allinbits/cosmos-cash-agent/pkg/wallets/ssi"
 	"google.golang.org/grpc"
 	"net/http"
 	"time"
@@ -35,7 +39,7 @@ type KeyData struct {
 	Armor   string `json:"armor"`
 }
 
-func Client(cfg config.EdgeConfigSchema, password string) *ChainClient {
+func Client(cfg config.EdgeConfigSchema, password string, ssiwallet *ssi.SSIWallet) *ChainClient {
 	log.Infoln("initializing client")
 	chainData, _ := config.GetAppData("chain")
 
@@ -124,7 +128,13 @@ func Client(cfg config.EdgeConfigSchema, password string) *ChainClient {
 				}
 			}
 		}
-		msg := initDIDDoc(cfg.ChainID, cfg.ControllerDidID, cfg.CloudAgentPublicURL, ki)
+		msg := initDIDDoc(
+			cfg.ChainID,
+			cfg.ControllerDidID,
+			cfg.CloudAgentPublicURL,
+			ki,
+			ssiwallet,
+		)
 		cc.BroadcastTx(msg)
 	}
 
@@ -143,7 +153,7 @@ func (cc *ChainClient) BroadcastTx(msgs ...sdk.Msg) {
 // 1. creates account keypair
 // 2. get some coins from the faucet
 // 3. creates the did document
-func initDIDDoc(chainID, didID, agentURL string, ki keyring.Info) sdk.Msg {
+func initDIDDoc(chainID, didID, agentURL string, ki keyring.Info, ssiWallet *ssi.SSIWallet) sdk.Msg {
 	log.Println("initializing new did document", didID)
 	did := didTypes.NewChainDID(chainID, didID)
 	// verification method id
@@ -159,6 +169,40 @@ func initDIDDoc(chainID, didID, agentURL string, ki keyring.Info) sdk.Msg {
 		nil,
 	)
 
+	keyID, pubKeyBytes, _ := ssiWallet.GetContext().KMS().CreateAndExportPubKeyBytes("X25519ECDHKW")
+	ariesvmID := did.NewVerificationMethodID(keyID)
+
+	type x25519ECDHKW struct {
+		Kid   string `json:"kid"`
+		X     string `json:"x"`
+		Curve string `json:"curve"`
+		Type  string `json:"type"`
+	}
+
+	// now get into a struct
+	var xPubKey x25519ECDHKW
+	err := json.Unmarshal(pubKeyBytes, &xPubKey)
+	if err != nil {
+		panic(err)
+	}
+	// now convert the base64 encoding
+	rawPubKey, err := base64.StdEncoding.DecodeString(xPubKey.X)
+	if err != nil {
+		panic(err)
+	}
+
+	verificationKeyAgreement := didTypes.NewVerification(
+		didTypes.NewVerificationMethod(
+			ariesvmID,
+			did,
+			didTypes.NewPublicKeyMultibase(
+				rawPubKey,
+				didTypes.DIDVMethodTypeX25519KeyAgreementKey2019),
+		),
+		[]string{didTypes.KeyAgreement},
+		nil,
+	)
+
 	service := didTypes.NewService(
 		didID+"-agent",
 		"DIDCommMessaging",
@@ -167,17 +211,10 @@ func initDIDDoc(chainID, didID, agentURL string, ki keyring.Info) sdk.Msg {
 
 	return didTypes.NewMsgCreateDidDocument(
 		did.String(),
-		didTypes.Verifications{verification},
+		didTypes.Verifications{verification, verificationKeyAgreement},
 		didTypes.Services{service},
 		ki.GetAddress().String(),
 	)
-
-	//// add verification
-	//return didTypes.NewMsgAddVerification(
-	//	did.String(),
-	//	verification,
-	//	ki.GetAddress().String(),
-	//)
 }
 
 func callFaucet(faucetURL, address string) {

@@ -49,7 +49,7 @@ func main() {
 
 	// cosmos-sdk keystore
 	//https://github.com/cosmos/cosmos-sdk/blob/master/client/keys/add.go
-	wallet := chain.Client(cfg, pwd)
+	wallet := chain.Client(cfg, pwd, agent)
 	go wallet.Run(cfg.RuntimeMsgs)
 
 	// render the app

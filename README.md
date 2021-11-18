@@ -1,6 +1,6 @@
-## Elesto controllers
+## Cosmos Cash controllers
 
-The [Elesto Protocol](https://github.com/allinbits/cosmos-cash) is a Decentralized Key Management System (DKMS) which needs agents to implement certain protocols to allow the project to leverage Self sovereign identity [SSI](https://en.wikipedia.org/wiki/Self-sovereign_identity)
+The [Cosmos Cash Protocol](https://github.com/allinbits/cosmos-cash) is a Decentralized Key Management System (DKMS) which needs agents to implement certain protocols to allow the project to leverage Self sovereign identity [SSI](https://en.wikipedia.org/wiki/Self-sovereign_identity)
 
 ### Key Characteristics
 
@@ -10,12 +10,12 @@ The [Elesto Protocol](https://github.com/allinbits/cosmos-cash) is a Decentraliz
 - A cryptographic wallet that can be used for secure storage of cryptographic secrets and other information (the secure storage tech, not a UI) used to build blockchain clients.
 - An encrypted messaging system for allowing off-ledger interaction between those clients using multiple transport protocols.
 - An implementation of ZKP-capable W3C verifiable credentials using the ZKP primitives found in Ursa.
-- An implementation of the Decentralized Key Management System (DKMS) specification currently being incubated in under the name Elesto by AllinBits.
-- A mechanism to build higher-level protocols and API-like use cases based on the secure messaging functionality. 
+- An implementation of the Decentralized Key Management System (DKMS) specification currently being incubated in under the name Cosmos Cash by AllinBits.
+- A mechanism to build higher-level protocols and API-like use cases based on the secure messaging functionality.
 
-#### Protocols 
+#### Protocols
 
-The following protocols are needed in the Elesto project.
+The following protocols are needed in the Cosmos Cash project.
 
 #### 1. DIDExchange Protocol
 
@@ -44,8 +44,8 @@ The following protocols are needed in the Elesto project.
 
 ## Agent Webhook Relayer
 
-The agent webhook relayer is a simple rest service that collects webhooks messages from agents 
-and makes them available for an edger agent or a controller to fetch them asynchronously. 
+The agent webhook relayer is a simple rest service that collects webhooks messages from agents
+and makes them available for an edger agent or a controller to fetch them asynchronously.
 
 The relayer exposes the following endpoints:
 
@@ -59,8 +59,8 @@ POST /ws/:agent
 :msg_body
 ```
 
-- the `:agent` path parameter is used to group the messages from the same agent. 
-- the `:msg_body` 
+- the `:agent` path parameter is used to group the messages from the same agent.
+- the `:msg_body`
 
 #### Example
 
@@ -82,8 +82,8 @@ aries start \
 
 ### Agent Webhook Retriever
 
-This endpoint should be used by a controller or an edge agent to retrieve the messages that 
-have been collected by the relayer for an agent. 
+This endpoint should be used by a controller or an edge agent to retrieve the messages that
+have been collected by the relayer for an agent.
 
 It returns a list of webhook messages, note that once the messages are read they are removed
 from the relayer.
@@ -99,7 +99,7 @@ POST /messages/:agent
 ]
 ```
 
-### How to run 
+### How to run
 
 ```sh
 go run cmd/webook-relayer/main.go -h                                                                                                                         │~
@@ -108,8 +108,8 @@ Usage of main.go:                                                               
   -listen string                                                                                                                                               │~
         server listen address (default ":2110")                                                                                                                │~
   -n int                                                                                                                                                       │~
-        Max number of messages that are kept per agent (default 4096)    
+        Max number of messages that are kept per agent (default 4096)
   -x int                                                                                                                                                       │~
-        Max-Requests-Per-Seconds: define the throttle limit in requests per seconds (default 10)            
+        Max-Requests-Per-Seconds: define the throttle limit in requests per seconds (default 10)
 
 ```
