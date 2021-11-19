@@ -45,6 +45,7 @@ var (
 
 type SSIWallet struct {
 	cloudAgentURL     string
+	ControllerDidID   string
 	w                 *wallet.Wallet
 	ctx               *context.Provider
 	didExchangeClient *didexchange.Client
@@ -70,7 +71,7 @@ func createDIDExchangeClient(ctx *context.Provider) *didexchange.Client {
 		panic(err)
 	}
 
-	// NOTE: no auto execute
+	// NOTE: no auto execute because it doens't work with routing
 	//	go func() {
 	//		service.AutoExecuteActionEvent(actions)
 	//	}()
@@ -171,6 +172,7 @@ func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
 
 	return &SSIWallet{
 		cloudAgentURL:     cfg.CloudAgentPublicURL,
+		ControllerDidID:   fmt.Sprintf("did:cosmos:net:%s:%s", cfg.ChainID, cfg.ControllerDidID),
 		w:                 w,
 		ctx:               ctx,
 		didExchangeClient: didExchangeClient,
@@ -195,7 +197,6 @@ func (cw *SSIWallet) HandleInvitation(
 	fmt.Println(connectionID)
 
 	return connection
-
 }
 
 func (cw *SSIWallet) AddMediator(
@@ -298,10 +299,11 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 
 			if invite.Invitation == nil {
 				reqURL = fmt.Sprint(
-					cw.cloudAgentURL,
-					"/connections/create-invitation?public=did:cosmos:net:cash:mediator9&label=BobMediatorEdgeAgent",
+					// TODO: fix cloud agent is properly exposed on k8s cluster
+					"http://localhost:8090",
+					"/connections/create-invitation?public=did:cosmos:net:cosmoscash-testnet:mediatortestnetws1&label=BobMediatorEdgeAgent",
 				)
-				post(client, reqURL, nil, &invite.Invitation)
+				post(client, reqURL, nil, &invite)
 			}
 
 			// TODO: validate invitation is correct
@@ -318,8 +320,8 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 			if len(params) > 1 && params[1] != "" {
 				err := cw.didExchangeClient.AcceptInvitation(
 					params[0],
-					"",
-					"new",
+					cw.ControllerDidID,
+					"new-with-public-did",
 					didexchange.WithRouterConnections(params[1]))
 				if err != nil {
 					panic(err)
@@ -327,7 +329,7 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 			} else {
 				err := cw.didExchangeClient.AcceptInvitation(
 					params[0],
-					"",
+					cw.ControllerDidID,
 					"new-wth",
 				)
 				if err != nil {
@@ -342,7 +344,7 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 			params := strings.Split(m.Payload.(string), " ")
 			err := cw.didExchangeClient.AcceptExchangeRequest(
 				params[0],
-				"",
+				cw.ControllerDidID,
 				"new-wth",
 				didexchange.WithRouterConnections(params[1]),
 			)
@@ -398,7 +400,7 @@ func (cw *SSIWallet) Run(hub *config.MsgHub) {
 			genericMsg.Type = "https://didcomm.org/generic/1.0/message"
 			genericMsg.Purpose = []string{"meeting"}
 			genericMsg.Message = params[1]
-			genericMsg.From = "Alice"
+			genericMsg.From = cw.ControllerDidID
 
 			rawBytes, _ := json.Marshal(genericMsg)
 

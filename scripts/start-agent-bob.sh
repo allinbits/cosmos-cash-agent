@@ -13,4 +13,4 @@ dlv debug ../cmd/elesto-agent/main.go -- start \
 	--database-type mem \
 	--database-prefix bob \
 	--log-level DEBUG \
-	--http-resolver-url cosmos@http://localhost:2109/identifier/aries/
+	--http-resolver-url cosmos@https://resolver-driver.cosmos-cash.app.beta.starport.cloud/identifier/aries/
