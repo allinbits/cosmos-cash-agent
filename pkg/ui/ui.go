@@ -107,8 +107,10 @@ func getDashboardTab() *container.TabItem {
 }
 
 func getCredentialsTab() *container.TabItem {
-	list := widget.NewListWithData(
-		credentials,
+
+	// public credentials
+	pubList := widget.NewListWithData(
+		publicCredentials,
 		func() fyne.CanvasObject {
 			return widget.NewLabel("")
 		},
@@ -116,12 +118,29 @@ func getCredentialsTab() *container.TabItem {
 			o.(*widget.Label).Bind(di.(binding.String))
 		},
 	)
-	list.OnSelected = credentialsSelected
+	pubList.OnSelected = publicCredentialSelected
+	// private credentials
+	privateList := widget.NewListWithData(
+		privateCredentials,
+		func() fyne.CanvasObject {
+			return widget.NewLabel("")
+		},
+		func(di binding.DataItem, o fyne.CanvasObject) {
+			o.(*widget.Label).Bind(di.(binding.String))
+		},
+	)
+	privateList.OnSelected = privateCredentialSelected
+	//
+	leftPanel := widget.NewAccordion(
+		widget.NewAccordionItem("Private Credentials", privateList),
+		widget.NewAccordionItem("Public Credentials", pubList),
+	)
 
+	// right panel
 	msgPanel := widget.NewLabelWithData(credentialData)
 	msgScroll := container.NewScroll(msgPanel)
 
-	body := container.NewHSplit(list, msgScroll)
+	body := container.NewHSplit(leftPanel, msgScroll)
 	main := container.New(layout.NewMaxLayout(), body)
 
 	return container.NewTabItem("Credentials", main)

@@ -23,9 +23,9 @@ var (
 	balances             = binding.NewStringList()
 	balancesChainOfTrust = binding.NewString()
 	// Credentials tab
-	// TODO need to have separate stuff for public and private credentials
-	credentials    = binding.NewStringList()
-	credentialData = binding.NewString()
+	publicCredentials  = binding.NewStringList()
+	privateCredentials = binding.NewStringList()
+	credentialData     = binding.NewString()
 	// Messages tab
 	contacts    = binding.NewStringList()
 	userCommand = binding.NewString()
@@ -47,6 +47,7 @@ func dispatcher(in chan config.AppMsg) {
 	statePath, exists := config.GetAppData("state.json")
 	if !exists {
 		helpers.WriteJson(statePath, state)
+
 	}
 	// now load the state
 	helpers.LoadJson(statePath, state)
@@ -82,8 +83,8 @@ func dispatcher(in chan config.AppMsg) {
 			for _, c := range m.Payload.([]vcTypes.VerifiableCredential) {
 				credentialIDs = append(credentialIDs, c.Id)
 			}
-			credentials.Set(credentialIDs)
-		case config.MsgPublicVCData:
+			publicCredentials.Set(credentialIDs)
+		case config.MsgVCData, config.MsgPublicVCData:
 			if m.Payload == nil {
 				credentialData.Set(string("No data"))
 				continue
@@ -154,11 +155,19 @@ func balancesSelected(iID widget.ListItemID) {
 	appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgChainOfTrust, v)
 }
 
-// credentialsSelected gets triggered when an item is selected in the credential list
-func credentialsSelected(iID widget.ListItemID) {
-	v, _ := credentials.GetValue(iID)
-	log.Debugln("credential selected", v)
+// publicCredentialSelected gets triggered when an item is selected in the public credential list
+func publicCredentialSelected(iID widget.ListItemID) {
+	v, _ := publicCredentials.GetValue(iID)
+	log.Debugln("public credential selected", v)
 	appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgPublicVCData, v)
+}
+
+// privateCredentialSelected gets triggered when an item is selected in the privateCredentialList list
+func privateCredentialSelected(iID widget.ListItemID) {
+	v, _ := privateCredentials.GetValue(iID)
+	log.Debugln("private credential selected", v)
+	// TODO: this should be handled by ARIES
+	appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgVCData, v)
 }
 
 // marketplacesSelected gets triggered when an item is selected in the credential list
