@@ -11,7 +11,7 @@ import (
 
 // GetBalance retrieves the "cash" balance for an account
 func (cc *ChainClient) GetBalance(address string) *sdk.Coin {
-	bankClient := banktypes.NewQueryClient(cc.ctx)
+	bankClient := banktypes.NewQueryClient(cc.cos.Context)
 	bankRes, err := bankClient.Balance(
 		context.Background(),
 		&banktypes.QueryBalanceRequest{Address: address, Denom: "cash"},
@@ -25,7 +25,7 @@ func (cc *ChainClient) GetBalance(address string) *sdk.Coin {
 
 // GetBalances retrieves all the balances for an account
 func (cc *ChainClient) GetBalances(address string) sdk.Coins {
-	bankClient := banktypes.NewQueryClient(cc.ctx)
+	bankClient := banktypes.NewQueryClient(cc.cos.Context)
 	bankRes, err := bankClient.AllBalances(
 		context.Background(),
 		&banktypes.QueryAllBalancesRequest{Address: address},
@@ -39,7 +39,7 @@ func (cc *ChainClient) GetBalances(address string) sdk.Coins {
 
 // GetChainOfTrust retrieve the chain of trust for a token DENOM
 func (cc *ChainClient) GetChainOfTrust(licenseCredentialID string) (cot []vcTypes.VerifiableCredential) {
-	client := vcTypes.NewQueryClient(cc.ctx)
+	client := vcTypes.NewQueryClient(cc.cos.Context)
 	res, err := client.VerifiableCredentials(
 		context.Background(),
 		&vcTypes.QueryVerifiableCredentialsRequest{},
@@ -100,7 +100,7 @@ func (cc *ChainClient) GetChainOfTrust(licenseCredentialID string) (cot []vcType
 
 // GetDenomChainOfTrust retrieve the chain of trust for a token DENOM
 func (cc *ChainClient) GetDenomChainOfTrust(denom string) (cot []vcTypes.VerifiableCredential) {
-	client := vcTypes.NewQueryClient(cc.ctx)
+	client := vcTypes.NewQueryClient(cc.cos.Context)
 	res, err := client.VerifiableCredentials(
 		context.Background(),
 		&vcTypes.QueryVerifiableCredentialsRequest{},
@@ -156,7 +156,7 @@ func (cc *ChainClient) GetDenomChainOfTrust(denom string) (cot []vcTypes.Verifia
 
 // DIDDoc retrieve a did document for a
 func (cc *ChainClient) DIDDoc(didID string) didTypes.DidDocument {
-	client := didTypes.NewQueryClient(cc.ctx)
+	client := didTypes.NewQueryClient(cc.cos.Context)
 	res, err := client.DidDocument(context.Background(), &didTypes.QueryDidDocumentRequest{Id: didID})
 	if err != nil {
 		log.Fatalln("error requesting balance", err)
@@ -167,7 +167,7 @@ func (cc *ChainClient) DIDDoc(didID string) didTypes.DidDocument {
 
 // GetHolderPublicVCS retrieve the VCS holded by a did
 func (cc *ChainClient) GetHolderPublicVCS(didID string) (vcs []vcTypes.VerifiableCredential) {
-	client := vcTypes.NewQueryClient(cc.ctx)
+	client := vcTypes.NewQueryClient(cc.cos.Context)
 	res, err := client.VerifiableCredentials(
 		context.Background(),
 		&vcTypes.QueryVerifiableCredentialsRequest{},
@@ -186,7 +186,7 @@ func (cc *ChainClient) GetHolderPublicVCS(didID string) (vcs []vcTypes.Verifiabl
 
 // GetLicenseCredentials retrieve the VCS holded by a did
 func (cc *ChainClient) GetLicenseCredentials() (vcs []vcTypes.VerifiableCredential) {
-	client := vcTypes.NewQueryClient(cc.ctx)
+	client := vcTypes.NewQueryClient(cc.cos.Context)
 	res, err := client.VerifiableCredentials(
 		context.Background(),
 		&vcTypes.QueryVerifiableCredentialsRequest{},
@@ -205,7 +205,7 @@ func (cc *ChainClient) GetLicenseCredentials() (vcs []vcTypes.VerifiableCredenti
 // GetPublicVC retrieve a vc by id
 func (cc *ChainClient) GetPublicVC(vcID string) vcTypes.VerifiableCredential {
 
-	client := vcTypes.NewQueryClient(cc.ctx)
+	client := vcTypes.NewQueryClient(cc.cos.Context)
 	res, err := client.VerifiableCredential(
 		context.Background(),
 		&vcTypes.QueryVerifiableCredentialRequest{VerifiableCredentialId: vcID},
@@ -215,3 +215,18 @@ func (cc *ChainClient) GetPublicVC(vcID string) vcTypes.VerifiableCredential {
 	}
 	return res.GetVerifiableCredential()
 }
+
+func (cc *ChainClient) ResolveDID(did string) (didTypes.DidDocument, bool) {
+
+	client := didTypes.NewQueryClient(cc.cos.Context)
+	res, err := client.DidDocument(
+		context.Background(),
+		&didTypes.QueryDidDocumentRequest{Id: did},
+	)
+	if err != nil {
+		return didTypes.DidDocument{}, false
+	}
+	return res.GetDidDocument(), true
+}
+
+

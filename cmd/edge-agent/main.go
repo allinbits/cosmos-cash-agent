@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"github.com/allinbits/cosmos-cash-agent/pkg/config"
 	"github.com/allinbits/cosmos-cash-agent/pkg/helpers"
@@ -39,6 +40,10 @@ func main() {
 	// init the web ui
 
 	cfg := setup()
+
+	m, _ := json.MarshalIndent(cfg, "", "💔")
+
+	log.Infoln("configuration is: ", string(m))
 
 	pwd := "a_password"
 
