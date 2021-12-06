@@ -67,6 +67,8 @@ const (
 	MsgChainAddAddress
 	// MsgSSIAddVC add a vc to the ssi wallet
 	MsgSSIAddVC
+	// MsgPaymentRequest receive a payment request
+	MsgPaymentRequest
 )
 
 // AppMsg are messages that are exchanged within the app

@@ -10,15 +10,21 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/allinbits/cosmos-cash-agent/pkg/config"
+	"github.com/allinbits/cosmos-cash-agent/pkg/model"
 	log "github.com/sirupsen/logrus"
+)
+
+var (
+	mainApp    fyne.App
+	mainWindow fyne.Window
 )
 
 func Render(cfg *config.EdgeConfigSchema) {
 
 	appCfg = cfg
 
-	myApp := app.New()
-	myWindow := myApp.NewWindow(cfg.ControllerName)
+	mainApp = app.New()
+	mainWindow = mainApp.NewWindow(cfg.ControllerName)
 
 	// main content
 	tabs := container.NewAppTabs(
@@ -30,22 +36,22 @@ func Render(cfg *config.EdgeConfigSchema) {
 		getLogTab(),
 	)
 
-	myWindow.SetContent(
+	mainWindow.SetContent(
 		container.NewMax(
 			tabs,
 			//footer,
 		),
 	)
 
-	myWindow.SetOnClosed(func() {
+	mainWindow.SetOnClosed(func() {
 		log.Infoln(">>>>>>> TERMINATING <<<<<<<")
 	})
 
 	// run the dispatcher that updates the ui
 	go dispatcher(cfg.RuntimeMsgs.Notification)
 	// lanuch the app
-	myWindow.Resize(fyne.NewSize(940, 660))
-	myWindow.ShowAndRun()
+	mainWindow.Resize(fyne.NewSize(940, 660))
+	mainWindow.ShowAndRun()
 }
 
 func getMessagesTab() *container.TabItem {
@@ -74,6 +80,11 @@ func getMessagesTab() *container.TabItem {
 
 	//msgPanel := container.NewVBox()
 	msgScroll := container.NewScroll(msgList)
+
+	input := widget.NewEntryWithData(userCommand)
+	input.OnSubmitted = func(_ string) {
+		executeCmd()
+	}
 
 	// footer stuff
 	rightPanel := container.NewBorder(
@@ -149,8 +160,6 @@ func getCredentialsTab() *container.TabItem {
 	)
 
 	// right panel
-
-
 	msgPanel := widget.NewEntryWithData(credentialData)
 	rightPanel := container.NewScroll(msgPanel)
 
@@ -211,4 +220,52 @@ func getLogTab() *container.TabItem {
 	msgPanel := widget.NewLabelWithData(logData)
 	main := container.NewScroll(msgPanel)
 	return container.NewTabItem("Logs", main)
+}
+
+func RenderPresentationRequest(title string, schema model.PresentationRequest, onSubmit func(map[string]string)) {
+	answers := make(map[string]binding.String)
+
+	var popUp *widget.PopUp
+	var fields []*widget.FormItem
+	for _, s := range schema.Fields {
+		// data
+		b := binding.NewString()
+		e := widget.NewEntryWithData(b)
+		if s.ReadOnly {
+			b.Set(s.Value)
+			e.Disable()
+		}
+		answers[s.Name] = b
+		// form item
+		w := widget.NewFormItem(s.Title, e)
+		w.HintText = s.Description
+		// fields
+		fields = append(fields, w)
+	}
+	form := &widget.Form{
+		Items: fields,
+		OnSubmit: func() {
+			// hide the popUp
+			popUp.Hide()
+			// convert data to string
+			data := make(map[string]string, len(fields))
+			for k, b := range answers {
+				s, _ := b.Get()
+				data[k] = s
+			}
+			// execute the callback
+			log.Debugln("form data", data)
+			onSubmit(data)
+		},
+		OnCancel:   func() { popUp.Hide() },
+		SubmitText: "Submit",
+		CancelText: "Cancel",
+	}
+
+	// create the popUp
+	popUp = widget.NewModalPopUp(
+		widget.NewCard(title, "", form),
+		mainWindow.Canvas(),
+	)
+	popUp.Show()
 }

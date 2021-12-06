@@ -133,6 +133,9 @@ func dispatcher(in chan config.AppMsg) {
 			contact, _ := state.Contacts[tm.Channel]
 			contact.Texts = append(contact.Texts, tm) // refresh view
 			state.Contacts[tm.Channel] = contact
+			// process the incoming message to see if matches a schema
+
+			// process the incoming message to see if matches a verifiable credential
 
 			// save the state
 			appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgSaveState, nil)
@@ -259,6 +262,25 @@ func executeCmd() {
 		}
 
 		//hub.Notification <- "chain"
+	case "debug", "d":
+		switch s[1] {
+		case "show-license-credentials", "lc":
+			ls := model.LicenseSchema("MICAEMI", "Dredd")
+			RenderPresentationRequest("Please supply license information", ls, func(m map[string]string) {
+				// todo Create verifiable Credential
+			})
+		}
+	case "payment-request", "pr":
+		// TODO: the recipientAddress should be chose by the person making the payment request
+		// in this case is the account used for the resolver demo did. see github.com/allinbits/cosmos-cash-misc
+		recipientAddress := "cosmos1lcc4s4qkv0yg7ntmws6v44z5r5py27hap7pfw3"
+		pr := model.PaymentRequest(recipientAddress, "cash", "Demo Payment")
+		RenderPresentationRequest("Please fill the payment request", pr, func(m map[string]string) {
+			helpers.DelayExec(10, func() {
+				appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgPaymentRequest, nil)
+			})
+		})
+
 	}
 
 	// FINALLY RECORD THE MESSAGE IN THE CHAT
