@@ -269,6 +269,30 @@ func executeCmd() {
 		}
 
 		//hub.Notification <- "chain"
+
+	case "debug", "d":
+		switch s[1] {
+		case "simulate-payment-request", "pr":
+			pr := model.NewPaymentRequest("sEUR", "Payment for the services")
+			// TODO: the recipientAddress is selected from the credentials
+			// in this case is the account used for the resolver demo did. see github.com/allinbits/cosmos-cash-misc
+			pr.Recipient = "cosmos1lcc4s4qkv0yg7ntmws6v44z5r5py27hap7pfw3"
+			// render the payment request
+			RenderPresentationRequest("Please enter the payment request details", pr, func(i interface{}) {
+				// when the payment request has been filled get the updated data
+				pr := i.(model.PaymentRequest)
+				// TODO: this should be now tunneled to the other party app
+				// now the other party should receive this message and render confirmation dialog
+				RenderRequestConfirmation("You got mail!", pr,
+					func(pr model.PresentationRequest) {
+						// TODO: send payment via token wallet
+						log.WithFields(log.Fields{"recipient": pr.(model.PaymentRequest).Recipient}).Infoln("payment approved ")
+					}, func(pr model.PresentationRequest) {
+						// TODO: send a message on the chat that the request has been aborted
+						log.WithFields(log.Fields{"recipient": pr.(model.PaymentRequest).Recipient}).Infoln("payment refused ")
+					})
+			})
+		}
 	}
 
 	// FINALLY RECORD THE MESSAGE IN THE CHAT

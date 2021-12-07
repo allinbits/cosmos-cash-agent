@@ -264,6 +264,9 @@ func (cc *ChainClient) Run(hub *config.MsgHub) {
 					hub.AgentWalletIn <- config.NewAppMsg(config.MsgSSIAddVC, signedVC)
 				},
 			})
+		case config.MsgPaymentRequest:
+			pr := m.Payload.(model.PaymentRequest)
+			log.Println(pr)
 		}
 	}
 }

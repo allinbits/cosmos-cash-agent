@@ -13,13 +13,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var (
+	mainWindow fyne.Window
+)
+
 func Render(cfg *config.EdgeConfigSchema) {
 
 	appCfg = cfg
 
 	myApp := app.New()
-	myWindow := myApp.NewWindow(cfg.ControllerName)
-
+	mainWindow = myApp.NewWindow(cfg.ControllerName)
 
 	// main content
 	tabs := container.NewAppTabs(
@@ -31,22 +34,22 @@ func Render(cfg *config.EdgeConfigSchema) {
 		getLogTab(),
 	)
 
-	myWindow.SetContent(
+	mainWindow.SetContent(
 		container.NewMax(
 			tabs,
 			//footer,
 		),
 	)
 
-	myWindow.SetOnClosed(func() {
+	mainWindow.SetOnClosed(func() {
 		log.Infoln(">>>>>>> TERMINATING <<<<<<<")
 	})
 
 	// run the dispatcher that updates the ui
-	go dispatcher(myWindow, cfg.RuntimeMsgs.Notification)
+	go dispatcher(mainWindow, cfg.RuntimeMsgs.Notification)
 	// lanuch the app
-	myWindow.Resize(fyne.NewSize(940, 660))
-	myWindow.ShowAndRun()
+	mainWindow.Resize(fyne.NewSize(940, 660))
+	mainWindow.ShowAndRun()
 }
 
 func getMessagesTab() *container.TabItem {
@@ -231,3 +234,4 @@ func getLogTab() *container.TabItem {
 	main := container.NewMax(container.NewScroll(list))
 	return container.NewTabItem("Logs", main)
 }
+

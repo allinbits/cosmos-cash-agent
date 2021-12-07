@@ -71,6 +71,8 @@ const (
 	MsgClipboard
 	// MsgDeleteConnection deletes a connections from the aries agent
 	MsgDeleteConnection
+	// MsgPaymentRequest receive a payment request
+	MsgPaymentRequest
 )
 
 // AppMsg are messages that are exchanged within the app
