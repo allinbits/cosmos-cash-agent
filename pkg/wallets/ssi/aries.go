@@ -321,7 +321,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 		switch m.Typ {
 		case config.MsgIssueVC:
 			// https://github.com/hyperledger/aries-framework-go/blob/main/docs/vc_wallet.md#add
-			ce := m.Payload.(model.ChargedEnvelope)
+			ce := m.Payload.(model.CallableEnvelope)
 			log.WithFields(log.Fields{"credential": ce.DataIn}).Debugln("adding credential")
 			// issue the credential
 			signedVC, err := s.w.Issue(s.walletAuthToken, ce.DataIn.(json.RawMessage), &wallet.ProofOptions{

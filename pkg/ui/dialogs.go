@@ -74,6 +74,8 @@ func RenderPresentationRequest(title string, data model.PresentationRequest, onS
 	vo = reflect.ValueOf(data)
 	to := vo.Type()
 
+
+
 	ptr = reflect.New(to)
 	temp := ptr.Elem()
 	temp.Set(vo)
@@ -93,8 +95,8 @@ func RenderPresentationRequest(title string, data model.PresentationRequest, onS
 		b := binding.NewString()
 		e := widget.NewEntryWithData(b)
 
+		b.Set(fmt.Sprintf("%v", v))
 		if readOnly {
-			b.Set(v.String())
 			e.Disable()
 		}
 

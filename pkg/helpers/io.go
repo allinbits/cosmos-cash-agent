@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"encoding/json"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 )
 
@@ -31,4 +32,19 @@ func LoadJson(filePath string, v interface{}) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// ToJson transform stuff to json string
+func ToJson(stuff interface{}) string {
+	b, err := json.Marshal(stuff)
+	if err != nil {
+		log.Errorln("error marshalling to json", err)
+	}
+	return string(b)
+}
+
+// RawJson marshal a struct to json and returns it
+func RawJson(stuff interface{}) json.RawMessage {
+	j := ToJson(stuff)
+	return json.RawMessage(j)
 }

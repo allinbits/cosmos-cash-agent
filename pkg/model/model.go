@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	didTypes "github.com/allinbits/cosmos-cash/v2/x/did/types"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	log "github.com/sirupsen/logrus"
 	"time"
@@ -135,48 +133,15 @@ func (x ED25519) PubKeyBytes() []byte {
 
 // UTLITY MESSAGES
 
-// ChargedEnvelope this is used to send messages that should be sent back to the sender
-type ChargedEnvelope struct {
+// CallableEnvelope this is used to send messages that should be sent back to the sender
+type CallableEnvelope struct {
 	DataIn   interface{}
 	Callback func(message string)
 }
 
-// CREDENTIALS
-
-// AccountCredentialSubject represent a subject for a blockchain account
-type AccountCredentialSubject struct {
-	ID      string
-	Address string
-	Name    string
-}
-
-// ChainAccountCredential creates a verifiable credential for a blockchain account
-func ChainAccountCredential(chainID, address, did, name string) *verifiable.Credential {
-	return &verifiable.Credential{
-		Context: []string{
-			"https://www.w3.org/2018/credentials/v1",
-		},
-		ID: didTypes.NewBlockchainAccountID(chainID, address).EncodeToString(),
-		Types: []string{
-			"VerifiableCredential",
-			// "CosmosAccountAddressCredential",
-		},
-		Subject: AccountCredentialSubject{
-			ID:      did,
-			Name:    name,
-			Address: address,
-		},
-		Issuer: verifiable.Issuer{
-			ID: did,
-		},
-		Issued: util.NewTime(time.Now()),
+func NewCallableEnvelope(payload interface{}, closure func(message string)) CallableEnvelope{
+	return CallableEnvelope{
+		DataIn:   payload,
+		Callback: closure,
 	}
-}
-
-// ChainAccountCredentialRaw creates a verifiable credential vor a blockchain account
-// and returns it as a json.RawMessage ready to be used in the aries wallet context
-func ChainAccountCredentialRaw(chainID, address, did, name string) json.RawMessage {
-	vc := ChainAccountCredential(chainID, address, did, name)
-	rawVC, _ := json.Marshal(vc)
-	return json.RawMessage(string(rawVC))
 }

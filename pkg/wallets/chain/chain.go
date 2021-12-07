@@ -2,10 +2,12 @@ package chain
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/allinbits/cosmos-cash-agent/pkg/config"
 	"github.com/allinbits/cosmos-cash-agent/pkg/helpers"
 	"github.com/allinbits/cosmos-cash-agent/pkg/model"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"google.golang.org/grpc"
 	"net/http"
 	"time"
@@ -137,12 +139,27 @@ func Client(cfg config.EdgeConfigSchema, password string) *ChainClient {
 	return &cc
 }
 
-func (cc *ChainClient) BroadcastTx(msgs ...sdk.Msg) {
+// BroadcastTx broadcast the transaction and retrieve the tx hash
+func (cc *ChainClient) BroadcastTx(msgs ...sdk.Msg) (txHash string) {
 	log.Infoln("broadcasting messages")
+	w := cc.ctx.Output
+	// set the ctx output to a buffer
+	b := new(bytes.Buffer)
+	cc.ctx.Output = b
+	// execute the tx
 	if err := tx.GenerateOrBroadcastTxWithFactory(cc.ctx, cc.fct, msgs...); err != nil {
 		log.Fatalln("failed tx", err)
 	}
-
+	// restore the buffer
+	cc.ctx.Output = w
+	// parse the json and retrieve the tx hash
+	tx := make(map[string]interface{})
+	if err := json.Unmarshal(b.Bytes(), &tx); err != nil {
+		log.Errorln("error unmarshalling transaction ", err)
+		return
+	}
+	txHash = tx["txhash"].(string)
+	return
 }
 
 func (cc *ChainClient) Close() {
@@ -258,15 +275,34 @@ func (cc *ChainClient) Run(hub *config.MsgHub) {
 			cc.DIDAddVerification(apk.KeyID(), apk.PubKeyBytes(), apk.VerificationMaterialType(), apk.DIDRelationships()...)
 		case config.MsgChainAddAddress:
 			// TODO GENERATE A NEW ACCOUNT ADDRESS
-			hub.AgentWalletIn <- config.NewAppMsg(config.MsgIssueVC, model.ChargedEnvelope{
-				DataIn: model.ChainAccountCredentialRaw(cc.ctx.ChainID, cc.acc.String(), cc.did.String(), fmt.Sprint("Main wallet: ", cc.acc.String()[0:10])),
-				Callback: func(signedVC string) {
+			hub.AgentWalletIn <- config.NewAppMsg(config.MsgIssueVC, model.NewCallableEnvelope(
+				helpers.RawJson(model.ChainAccountCredential(cc.ctx.ChainID, cc.acc.String(), cc.did.String(), fmt.Sprint("Main wallet: ", cc.acc.String()[0:10]))),
+				func(signedVC string) {
 					hub.AgentWalletIn <- config.NewAppMsg(config.MsgSSIAddVC, signedVC)
-				},
-			})
+				}),
+			)
 		case config.MsgPaymentRequest:
 			pr := m.Payload.(model.PaymentRequest)
-			log.Println(pr)
+			// do the payment
+			recipient, err := sdk.AccAddressFromBech32(pr.Recipient)
+			if err != nil {
+				log.Errorln(err)
+			}
+			amount, err := sdk.ParseCoinNormalized(fmt.Sprintf("%v%s", pr.Amount, pr.Denom))
+			if err != nil {
+				log.Errorln(err)
+			}
+			msg := banktypes.NewMsgSend(cc.acc, recipient, sdk.Coins{amount})
+			txHash := cc.BroadcastTx(msg)
+			hub.AgentWalletIn <- config.NewAppMsg(config.MsgIssueVC, model.NewCallableEnvelope(
+				helpers.RawJson(model.NewPaymentReceiptCredential(cc.did.String(), txHash, pr)),
+				func(signedVC string) {
+					hub.AgentWalletIn <- config.NewAppMsg(config.MsgSSIAddVC, signedVC)
+					log.Infoln("payment sent", signedVC)
+				}),
+			)
+			// save the payment result to a verifiable credential
+
 		}
 	}
 }

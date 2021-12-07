@@ -137,6 +137,29 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 			contact.Texts = append(contact.Texts, tm) // refresh view
 			state.Contacts[tm.Channel] = contact
 
+			if pr, isRequest := model.ParsePresentationRequest(tm.Content); isRequest {
+				switch prT := pr.(type) {
+				// FOR PAYMENT
+				case *model.PaymentRequest:
+					paymentReq := *prT
+					// TODO: this should be now tunneled to the other party app
+					// now the other party should receive this message and render confirmation dialog
+					RenderRequestConfirmation("You got mail!", paymentReq,
+						func(pr model.PresentationRequest) {
+							// TODO: send payment via token wallet
+							log.WithFields(log.Fields{"recipient": paymentReq.Recipient}).Infoln("payment approved")
+							appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgPaymentRequest, paymentReq)
+						}, func(pr model.PresentationRequest) {
+							// TODO: send a message on the chat that the request has been aborted
+							log.WithFields(log.Fields{"recipient": paymentReq.Recipient}).Infoln("payment refused ")
+						})
+				default:
+					log.Errorln("unknown presentation request", prT)
+				}
+
+
+			}
+
 			// save the state
 			appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgSaveState, nil)
 
@@ -280,17 +303,12 @@ func executeCmd() {
 			// render the payment request
 			RenderPresentationRequest("Please enter the payment request details", pr, func(i interface{}) {
 				// when the payment request has been filled get the updated data
-				pr := i.(model.PaymentRequest)
-				// TODO: this should be now tunneled to the other party app
-				// now the other party should receive this message and render confirmation dialog
-				RenderRequestConfirmation("You got mail!", pr,
-					func(pr model.PresentationRequest) {
-						// TODO: send payment via token wallet
-						log.WithFields(log.Fields{"recipient": pr.(model.PaymentRequest).Recipient}).Infoln("payment approved ")
-					}, func(pr model.PresentationRequest) {
-						// TODO: send a message on the chat that the request has been aborted
-						log.WithFields(log.Fields{"recipient": pr.(model.PaymentRequest).Recipient}).Infoln("payment refused ")
-					})
+				contact, _ := contacts.GetValue(state.SelectedContact)
+				tm := model.NewTextMessage(contact, contact, helpers.ToJson(i))
+				// TODO: send the request
+				// appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
+				// in this case we simulate that it arrives to tue current client
+				appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgTextReceived, tm)
 			})
 		}
 	}
