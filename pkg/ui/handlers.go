@@ -293,8 +293,8 @@ func executeCmd() {
 		case "chat":
 		case "c":
 			contact, _ := contacts.GetValue(state.SelectedContact)
-			payload := contact + " " + s[2]
-			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, payload)
+			tm := model.NewTextMessage(contact, contact, s[2])
+			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 
 		}
 	case "chain", "c":
@@ -317,10 +317,8 @@ func executeCmd() {
 				// when the payment request has been filled get the updated data
 				contact, _ := contacts.GetValue(state.SelectedContact)
 				tm := model.NewTextMessage(contact, contact, helpers.ToJson(i))
-				// TODO: send the request
-				// appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
-				// in this case we simulate that it arrives to tue current client
-				appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgTextReceived, tm)
+				// route the message to the agent
+				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 			})
 		case "regulator-credential", "rg":
 			r := model.NewRegulatorCredentialRequest(appCfg.ControllerDID())
@@ -334,10 +332,8 @@ func executeCmd() {
 				// when the payment request has been filled get the updated data
 				contact, _ := contacts.GetValue(state.SelectedContact)
 				tm := model.NewTextMessage(contact, contact, helpers.ToJson(i))
-				// TODO: send the request
-				// appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
-				// in this case we simulate that it arrives to tue current client
-				appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgTextReceived, tm)
+				// route the message to the agent
+				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 			})
 		case "license-credential", "lc":
 			r := model.NewLicenseCredentialRequest("MICAEMI", "EU")
@@ -345,10 +341,8 @@ func executeCmd() {
 				// when the payment request has been filled get the updated data
 				contact, _ := contacts.GetValue(state.SelectedContact)
 				tm := model.NewTextMessage(contact, contact, helpers.ToJson(i))
-				// TODO: send the request
-				// appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
-				// in this case we simulate that it arrives to tue current client
-				appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgTextReceived, tm)
+				// route the message to the agent
+				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 			})
 		}
 	}

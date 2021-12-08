@@ -182,12 +182,12 @@ func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
 	routeClient := createRoutingClient(ctx)
 	messagingClient := createMessagingClient(ctx, registrar, cfg.RuntimeMsgs)
 
-	genereateKeys := false
+	genKeys := false
 	// creating wallet profile using local KMS passphrase
 	if err := wallet.CreateProfile(cfg.ControllerName, ctx, wallet.WithPassphrase(pass)); err != nil {
 		log.Infoln("profile already exists for", cfg.ControllerName, err)
 	} else {
-		genereateKeys = true
+		genKeys = true
 	}
 
 	// creating vcwallet instance for user with local KMS settings.
@@ -205,7 +205,7 @@ func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
 		log.Println("wallet auth token is", walletAuthToken)
 	}
 
-	if genereateKeys {
+	if genKeys {
 		log.Infoln("creating keys for", cfg.ControllerName)
 		// create a key to perform keyAgreement between agent
 		keyID, pubKeyBytes, err := ctx.KMS().CreateAndExportPubKeyBytes(kms.X25519ECDHKWType)
@@ -489,13 +489,14 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 
 			hub.Notification <- config.NewAppMsg(config.MsgUpdateContact, sb.String())
 		case config.MsgSendText:
+
+			tm := m.Payload.(model.TextMessage)
 			log.Debugln(
 				"AgentWallet received MsgHandleInvitation msg for ",
 				m.Payload.(string),
 			)
 
-			params := strings.Split(m.Payload.(string), " ")
-			connection, err := s.didExchangeClient.GetConnection(params[0])
+			connection, err := s.didExchangeClient.GetConnection(tm.Channel)
 			if err != nil {
 				log.Errorln("GetConnection", err)
 				break
@@ -505,14 +506,13 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			genericMsg.ID = fmt.Sprint(rand.Float64())
 			genericMsg.Type = "https://didcomm.org/generic/1.0/message"
 			genericMsg.Purpose = []string{"meeting", "appointment", "event"}
-			genericMsg.Message = params[1]
+			genericMsg.Message = tm.Content
 			genericMsg.From = s.ControllerDID
 			genericMsg.SenderDID = connection.MyDID
 			genericMsg.RecipientDID = connection.TheirDID
 
 			rawBytes, _ := json.Marshal(genericMsg)
-
-			resp, err := s.messagingClient.Send(rawBytes, messaging.SendByConnectionID(params[0]))
+			resp, err := s.messagingClient.Send(rawBytes, messaging.SendByConnectionID(tm.Channel))
 			if err != nil {
 				log.Errorln("SendByConnectionID", err)
 			}
