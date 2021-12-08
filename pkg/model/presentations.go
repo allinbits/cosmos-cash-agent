@@ -41,9 +41,9 @@ func ParsePresentationRequest(data string) (v PresentationRequest, isPresentatio
 type PaymentRequest struct {
 	// Credential name of the credential that should be received as a reply for this request
 	Credential string  `json:"expected_credential"`
-	Denom      string  `json:"denom" cash_label:"Token Denomination" cash_hint:"the token symbol"`
 	Recipient  string  `json:"recipient" cash_label:"Recipient Address" cash_hint:"address to send the payment to"`
 	Amount     float64 `json:"amount" cash_label:"Amount" cash_hint:"amount to be transferred"`
+	Denom      string  `json:"denom" cash_label:"Token Denomination" cash_hint:"the token symbol"`
 	Note       string  `json:"note" cash_label:"Payment Note" cash_hint:"note for the payment request"`
 }
 
