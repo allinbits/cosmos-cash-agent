@@ -153,10 +153,22 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 							// TODO: send a message on the chat that the request has been aborted
 							log.WithFields(log.Fields{"recipient": paymentReq.Recipient}).Infoln("payment refused ")
 						})
+				case *model.RegulatorCredentialRequest:
+					req := *prT
+					appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, req)
+				case *model.RegistrationCredentialRequest:
+					req := *prT
+					appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, req)
+				case *model.LicenseCredentialRequest:
+					req := *prT
+					appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, req)
+				case *model.UserCredentialRequest:
+					req := *prT
+					appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, req)
+
 				default:
 					log.Errorln("unknown presentation request", prT)
 				}
-
 
 			}
 
@@ -295,13 +307,41 @@ func executeCmd() {
 
 	case "debug", "d":
 		switch s[1] {
-		case "simulate-payment-request", "pr":
-			pr := model.NewPaymentRequest("sEUR", "Payment for the services")
+		case "payment-request", "pr":
+			r := model.NewPaymentRequest("sEUR", "Payment for the services")
 			// TODO: the recipientAddress is selected from the credentials
 			// in this case is the account used for the resolver demo did. see github.com/allinbits/cosmos-cash-misc
-			pr.Recipient = "cosmos1lcc4s4qkv0yg7ntmws6v44z5r5py27hap7pfw3"
+			r.Recipient = "cosmos1lcc4s4qkv0yg7ntmws6v44z5r5py27hap7pfw3"
 			// render the payment request
-			RenderPresentationRequest("Please enter the payment request details", pr, func(i interface{}) {
+			RenderPresentationRequest("Please enter the payment request details", r, func(i interface{}) {
+				// when the payment request has been filled get the updated data
+				contact, _ := contacts.GetValue(state.SelectedContact)
+				tm := model.NewTextMessage(contact, contact, helpers.ToJson(i))
+				// TODO: send the request
+				// appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
+				// in this case we simulate that it arrives to tue current client
+				appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgTextReceived, tm)
+			})
+		case "regulator-credential", "rg":
+			r := model.NewRegulatorCredentialRequest(appCfg.ControllerDID())
+			RenderPresentationRequest("Enter regulator data", r, func(i interface{}) {
+				//appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
+
+			})
+		case "registration-credential", "rc":
+			r := model.NewRegistrationCredentialRequest("EU")
+			RenderPresentationRequest("Enter registration request", r, func(i interface{}) {
+				// when the payment request has been filled get the updated data
+				contact, _ := contacts.GetValue(state.SelectedContact)
+				tm := model.NewTextMessage(contact, contact, helpers.ToJson(i))
+				// TODO: send the request
+				// appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
+				// in this case we simulate that it arrives to tue current client
+				appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgTextReceived, tm)
+			})
+		case "license-credential", "lc":
+			r := model.NewLicenseCredentialRequest("MICAEMI", "EU")
+			RenderPresentationRequest("Enter license request", r, func(i interface{}) {
 				// when the payment request has been filled get the updated data
 				contact, _ := contacts.GetValue(state.SelectedContact)
 				tm := model.NewTextMessage(contact, contact, helpers.ToJson(i))

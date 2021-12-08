@@ -7,6 +7,7 @@ import (
 	"github.com/allinbits/cosmos-cash-agent/pkg/config"
 	"github.com/allinbits/cosmos-cash-agent/pkg/helpers"
 	"github.com/allinbits/cosmos-cash-agent/pkg/model"
+	vcTypes "github.com/allinbits/cosmos-cash/v2/x/verifiable-credential/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"google.golang.org/grpc"
 	"net/http"
@@ -301,8 +302,12 @@ func (cc *ChainClient) Run(hub *config.MsgHub) {
 					log.Infoln("payment sent", signedVC)
 				}),
 			)
+		case config.MsgIssueVC:
+			vc := m.Payload.(vcTypes.VerifiableCredential)
 			// save the payment result to a verifiable credential
-
+			msg := vcTypes.NewMsgIssueCredential(vc, cc.acc.String())
+			txHash := cc.BroadcastTx(msg)
+			log.Println("transaction hash", txHash)
 		}
 	}
 }

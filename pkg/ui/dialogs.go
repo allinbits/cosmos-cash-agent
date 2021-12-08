@@ -127,6 +127,12 @@ func RenderPresentationRequest(title string, data model.PresentationRequest, onS
 						log.Errorln("cannot parse float %v", s)
 					}
 					fieldValue.SetFloat(pf)
+				case reflect.Int64:
+					pf, err := strconv.ParseInt(s, 10,64)
+					if err != nil {
+						log.Errorln("cannot parse float %v", s)
+					}
+					fieldValue.SetInt(pf)
 				default:
 					log.Errorln("cannot handle type %v for field %v", fieldValue.Kind(), k)
 				}

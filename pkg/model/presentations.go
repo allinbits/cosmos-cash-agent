@@ -18,6 +18,10 @@ func ParsePresentationRequest(data string) (v PresentationRequest, isPresentatio
 
 	options := []PresentationRequest{
 		&PaymentRequest{},
+		&RegulatorCredentialRequest{},
+		&RegistrationCredentialRequest{},
+		&LicenseCredentialRequest{},
+		&UserCredentialRequest{},
 	}
 	// for each know interface try to parse it
 	for _, into := range options {
@@ -43,6 +47,10 @@ type PaymentRequest struct {
 	Note       string  `json:"note" cash_label:"Payment Note" cash_hint:"note for the payment request"`
 }
 
+func (r PaymentRequest) ExpectedCredential() string {
+	return r.Credential
+}
+
 func NewPaymentRequest(denom, note string) PaymentRequest {
 	return PaymentRequest{
 		Denom:      denom,
@@ -51,9 +59,85 @@ func NewPaymentRequest(denom, note string) PaymentRequest {
 	}
 }
 
-func (r PaymentRequest) ExpectedCredential() string {
+// RegulatorCredentialRequest to activate a regulator
+type RegulatorCredentialRequest struct {
+	// Credential name of the credential that should be received as a reply for this request
+	Credential string `json:"expected_credential"`
+	SubjectDID string `json:"subject_did" cash_label:"Subject DID" cash_hint:"the subject that should be a regulator"`
+	Country    string `json:"country" cash_label:"Country" cash_hint:"the regulator country of authority"`
+	Name       string `json:"name" cash_label:"Regulator name" cash_hint:"name of the regulator authority"`
+}
+
+func (r RegulatorCredentialRequest) ExpectedCredential() string {
 	return r.Credential
 }
 
+func NewRegulatorCredentialRequest(subjectDID string) RegulatorCredentialRequest {
+	return RegulatorCredentialRequest{
+		SubjectDID: subjectDID,
+		Credential: "RegulatorCredential",
+	}
+}
 
+// RegistrationCredentialRequest to register an emti organization
+type RegistrationCredentialRequest struct {
+	// Credential name of the credential that should be received as a reply for this request
+	Credential string `json:"expected_credential"`
+	Country    string `json:"country" cash_label:"Country" cash_hint:"the country of operation for the e-money token provider"`
+	Name       string `json:"name" cash_label:"Organization name" cash_hint:"name of the e-money token provider organization"`
+	ShortName  string `json:"name" cash_label:"Organization short name" cash_hint:"short name of the e-money token provider organization"`
+}
 
+func (r RegistrationCredentialRequest) ExpectedCredential() string {
+	return r.Credential
+}
+
+func NewRegistrationCredentialRequest(country string) RegistrationCredentialRequest {
+	return RegistrationCredentialRequest{
+		Country:    country,
+		Credential: "RegistrationCredential",
+	}
+}
+
+// LicenseCredentialRequest to provide a license for an emti
+type LicenseCredentialRequest struct {
+	// Credential name of the credential that should be received as a reply for this request
+	Credential  string `json:"expected_credential"`
+	Country     string `json:"country" cash_label:"Country" cash_hint:"the regulator country of authority"`
+	LicenseType string `json:"name" cash_label:"Regulator name" cash_hint:"name of the regulator authority"`
+	Denom       string `json:"denom" cash_label:"Token denomination" cash_hint:"symbol of the token to issue"`
+	MaxSupply   int64  `json:"max_supply" cash_label:"Max supply" cash_hint:"max supply for the token"`
+	Authority   string `json:"authority" cash_label:"Regulator name" cash_hint:"name of the regulator authority"`
+}
+
+func (r LicenseCredentialRequest) ExpectedCredential() string {
+	return r.Credential
+}
+
+func NewLicenseCredentialRequest(licenseType, country string) LicenseCredentialRequest {
+	return LicenseCredentialRequest{
+		Country:     country,
+		LicenseType: licenseType,
+		Credential:  "LicenseCredential",
+	}
+}
+
+// UserCredentialRequest to create a proof of KYC
+type UserCredentialRequest struct {
+	// Credential name of the credential that should be received as a reply for this request
+	Credential string `json:"expected_credential"`
+	ZKP        string `json:"zkp" cash_label:"ZKP" cash_hint:"proof of the user identity (PoKYC)"`
+	IsVerified bool   `json:"is_verified"`
+}
+
+func (r UserCredentialRequest) ExpectedCredential() string {
+	return r.Credential
+}
+
+func NewUserCredentialRequest(zkp string) UserCredentialRequest {
+	return UserCredentialRequest{
+		ZKP:        zkp,
+		IsVerified: true,
+		Credential: "RegulatorCredential",
+	}
+}
