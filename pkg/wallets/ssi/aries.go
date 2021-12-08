@@ -313,24 +313,30 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			if err != nil {
 				log.Fatalln(err)
 			}
-			// add the missing connections
-			for _, c := range connections {
-				s.w.Add(s.walletAuthToken, wallet.Connection, helpers.RawJson(c))
-			}
 			// retrieve the connections
 			savedConnections, _ := s.w.GetAll(s.walletAuthToken, wallet.Connection)
+			connectionContacts := make(map[string]model.Contact, len(savedConnections))
+			for _, jrmc := range savedConnections {
+				var c didexchange.Connection
+				json.Unmarshal(jrmc, &c)
+				connectionContacts[c.ConnectionID] = model.NewContact(&c)
+			}
+			// now search if the connection exists
+			for _, c := range connections {
+				if _, found := connectionContacts[c.ConnectionID]; !found {
+					s.w.Add(s.walletAuthToken, wallet.Connection, helpers.RawJson(c))
+					connectionContacts[c.ConnectionID] = model.NewContact(c)
+				}
+			}
+			// sort the contacts
 			var contacts []interface{}
-			// sort connections
-			keys := make([]string, 0, len(savedConnections))
-			for k := range savedConnections {
+			keys := make([]string, 0, len(connectionContacts))
+			for k := range connectionContacts {
 				keys = append(keys, k)
 			}
 			sort.Strings(keys)
 			for _, k := range keys {
-				jrmc := savedConnections[k]
-				var c didexchange.Connection
-				json.Unmarshal(jrmc, &c)
-				contacts = append(contacts, model.NewContact(&c))
+				contacts = append(contacts, connectionContacts[k])
 			}
 			// send them to the ui
 			hub.Notification <- config.NewAppMsg(config.MsgUpdateContacts, contacts)
@@ -452,7 +458,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 				err := s.didExchangeClient.AcceptInvitation(
 					params[0],
 					"",
-					s.ControllerName + "-AcceptInvitation 2",
+					s.ControllerName+"-AcceptInvitation 2",
 				)
 				if err != nil {
 					log.Errorln("AcceptInvitation", err)
@@ -468,7 +474,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			err := s.didExchangeClient.AcceptExchangeRequest(
 				params[0],
 				"",
-				s.ControllerName + "-AcceptExchangeRequest",
+				s.ControllerName+"-AcceptExchangeRequest",
 				didexchange.WithRouterConnections(params[1]),
 			)
 			if err != nil {
@@ -541,6 +547,20 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 				log.Errorln("SendByConnectionID", err)
 			}
 			log.Debugln("message response is", resp)
+		case config.MsgDeleteConnection:
+			targetConnectionID := m.Payload.(string)
+			// find and delete the connection
+			savedConnections, _ := s.w.GetAll(s.walletAuthToken, wallet.Connection)
+			for k, rc := range savedConnections {
+				var c didexchange.Connection
+				_ = json.Unmarshal(rc, &c)
+				log.Debugf("checking connection %s for removal against %s", c.ConnectionID, targetConnectionID)
+				if c.ConnectionID == targetConnectionID {
+					log.Debugln("removing connection ", c.ConnectionID, k)
+					s.w.Remove(s.walletAuthToken, wallet.Connection, k)
+					s.didExchangeClient.RemoveConnection(c.ConnectionID)
+				}
+			}
 		}
 	}
 }
