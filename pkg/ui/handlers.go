@@ -279,8 +279,7 @@ func executeCmd() {
 		case "delete":
 		case "d":
 			contact, _ := getContact(state.SelectedContact)
-			payload := contact.Connection.ConnectionID + " " + s[3]
-			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgDeleteConnection, payload)
+			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgDeleteConnection, contact.ConnectionID)
 		case "mediator":
 		case "m":
 			contact, _ := getContact(state.SelectedContact)
