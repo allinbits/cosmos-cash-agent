@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -124,6 +125,12 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 			msgHistory = append(msgHistory, tm) // refresh view
 			state.Messages[tm.Channel] = msgHistory
 
+			// this message was sent by the current user
+			if tm.From == appCfg.ControllerName {
+				messages.Append(tm.String())
+				break
+			}
+
 			if pr, isRequest := model.ParsePresentationRequest(tm.Content); isRequest {
 				switch prT := pr.(type) {
 				// FOR PAYMENT
@@ -131,7 +138,7 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 					paymentReq := *prT
 					// TODO: this should be now tunneled to the other party app
 					// now the other party should receive this message and render confirmation dialog
-					RenderRequestConfirmation("You got mail!", paymentReq,
+					RenderRequestConfirmation(fmt.Sprintf("Payment request from %s", tm.From), paymentReq,
 						func(pr model.PresentationRequest) {
 							// TODO: send payment via token wallet
 							log.WithFields(log.Fields{"recipient": paymentReq.Recipient}).Infoln("payment approved")
@@ -163,7 +170,7 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 
 			// append the message if on focus
 			contact, _ := getContact(state.SelectedContact)
-			if tm.Channel == contact.ConnectionID || tm.From == appCfg.ControllerName {
+			if tm.Channel == contact.ConnectionID {
 				messages.Append(tm.String())
 			}
 		}
@@ -237,6 +244,14 @@ func executeCmd() {
 	val, _ := userCommand.Get()
 	log.WithFields(log.Fields{"command": val}).Infoln("user command received")
 
+	defer userCommand.Set("")
+
+	// FINALLY RECORD THE MESSAGE IN THE CHAT
+	// if no contact is selected move on
+	if state.SelectedContact < 0 {
+		return
+	}
+
 	// parse the command
 	s := strings.Split(val, " ")
 
@@ -284,19 +299,25 @@ func executeCmd() {
 		case "s":
 			contact, _ := getContact(state.SelectedContact)
 			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgGetConnectionStatus, contact.Connection.ConnectionID)
-		case "chat":
-		case "c":
-			contact, _ := getContact(state.SelectedContact)
-			tm := model.NewTextMessage(contact.ConnectionID, appCfg.ControllerName, s[2])
-			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 		}
 	case "chain", "c":
 		switch s[1] {
 		case "address", "a":
 			appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgChainAddAddress, nil)
+		case "payment-request", "pr":
+			r := model.NewPaymentRequest("sEUR", "Payment for the services")
+			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgVCs, model.NewCallableEnvelope(nil, func(account string) {
+				r.Recipient = account
+				// render the payment request
+				RenderPresentationRequest("Please enter the payment request details", r, func(i interface{}) {
+					// when the payment request has been filled get the updated data
+					contact, _ := getContact(state.SelectedContact)
+					tm := model.NewTextMessage(contact.Connection.ConnectionID, appCfg.ControllerName, helpers.ToJson(i))
+					// route the message to the agent
+					appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
+				})
+			}))
 		}
-
-		//hub.Notification <- "chain"
 
 	case "debug", "d":
 		switch s[1] {
@@ -339,23 +360,20 @@ func executeCmd() {
 		}
 	}
 
-	// FINALLY RECORD THE MESSAGE IN THE CHAT
-	// if no contact is selected move on
-	if state.SelectedContact < 0 {
-		return
+	if contact, err := getContact(state.SelectedContact); err == nil {
+		tm := model.NewTextMessage(contact.ConnectionID, appCfg.ControllerName, val)
+		appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 	}
-	//channel, _ := contacts.GetValue(state.SelectedContact)
-	// send it as a text received
-	//	appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(
-	//		config.MsgTextReceived,
-	//		model.NewTextMessage(channel, appCfg.ControllerName, val),
-	//	)
-	// reset the command
-	userCommand.Set("")
+
+
 }
 
 // getContact helper method to get a contact
 func getContact(id int) (c model.Contact, err error) {
+	if contacts.Length() == 0 {
+		err = fmt.Errorf("contact list empty")
+		return
+	}
 	i, err := contacts.GetValue(id)
 	if err != nil {
 		return

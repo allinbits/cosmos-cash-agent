@@ -201,7 +201,10 @@ func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
 	}
 
 	// TODO the wallet should be closed eventually
-	walletAuthToken, err := w.Open(wallet.WithUnlockByPassphrase(pass))
+	walletAuthToken, err := w.Open(
+		wallet.WithUnlockByPassphrase(pass),
+		wallet.WithUnlockExpiry(time.Duration(24)*time.Hour),
+	)
 	if err != nil {
 		log.Fatalln("wallet cannot be opened", err)
 	} else {
@@ -547,6 +550,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 				log.Errorln("SendByConnectionID", err)
 			}
 			log.Debugln("message response is", resp)
+
 		case config.MsgDeleteConnection:
 			targetConnectionID := m.Payload.(string)
 			// find and delete the connection
