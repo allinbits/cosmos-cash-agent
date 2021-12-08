@@ -2,6 +2,8 @@ package ui
 
 import (
 	"encoding/json"
+	"strings"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/widget"
@@ -12,9 +14,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	log "github.com/sirupsen/logrus"
-	"strings"
-
-	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 )
 
 // this section contains all the databindings to the ui
@@ -29,7 +28,7 @@ var (
 	privateCredentials = binding.NewStringList()
 	credentialData     = binding.NewString()
 	// Messages tab
-	contacts    = binding.NewStringList()
+	contacts    = binding.NewUntypedList()
 	userCommand = binding.NewString()
 	messages    = binding.NewStringList()
 	// contactData = binding.NewString()
@@ -51,14 +50,17 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 		helpers.WriteJson(statePath, state)
 
 	}
+
 	// now load the state
 	helpers.LoadJson(statePath, state)
+
+	// TODO where do we store connections?
 	// now show the contacts
-	var contactNames []string
-	for k, _ := range state.Contacts {
-		contactNames = append(contactNames, k)
-	}
-	contacts.Set(contactNames)
+	//var contactNames []string
+	//for k, _ := range state.Contacts {
+	//	contactNames = append(contactNames, k)
+	//}
+	//contacts.Set(contactNames)
 
 	// now handle the incoming notifications
 	for {
@@ -108,25 +110,17 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 				mks = append(mks, c.GetId())
 			}
 			marketplaces.Set(mks)
-		case config.MsgContactAdded:
-			newContact := m.Payload.(*didexchange.Connection)
-
-			contact := model.NewContact(newContact.TheirLabel, newContact.TheirDID, *newContact)
-			state.Contacts[contact.Connection.ConnectionID] = contact
-			// update the model
-			contacts.Append(newContact.ConnectionID)
-
-			// request state save
-			//appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgSaveState, nil)
+		//case config.MsgContactAdded:
+		//	newContact := m.Payload.(*didexchange.Connection)
+		//	contact := model.NewContact(*newContact)
+		//	state.Contacts[contact.Connection.ConnectionID] = contact
+		//	// update the model
+		//	contacts.Append(newContact.ConnectionID)
+		//	// request state save
+		//	//appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgSaveState, nil)
 
 		case config.MsgUpdateContacts:
-			allContacts := m.Payload.([]*didexchange.Connection)
-			cons, _ := contacts.Get()
-			for _, contact := range allContacts {
-				if !stringInSlice(contact.ConnectionID, cons) {
-					contacts.Append(contact.ConnectionID)
-				}
-			}
+			contacts.Set(m.Payload.([]interface{}))
 		case config.MsgUpdateContact:
 			status := m.Payload.(string)
 			messages.Append(status)
@@ -224,15 +218,20 @@ func marketplacesSelected(iID widget.ListItemID) {
 
 // contactSelected gets triggered when an item is selected in the contact list
 func contactSelected(iID widget.ListItemID) {
-	name, _ := contacts.GetValue(iID)
-	contact, _ := state.Contacts[name]
+	contactData, err := contacts.GetValue(iID)
+	if err != nil {
+		log.Errorln("error retrieving contact id ", iID, err)
+		return
+	}
+	contact := contactData.(model.Contact)
+	//contact, _ := state.Contacts[name]
 	msgs := make([]string, len(contact.Texts))
 	for i, msg := range contact.Texts {
 		msgs[i] = msg.String()
 	}
 	messages.Set(msgs)
 	// copy to clipboard the name
-	appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgClipboard, name)
+	appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgClipboard, contact.Connection.ConnectionID)
 	// update selected contact index
 	state.SelectedContact = iID
 }
@@ -254,8 +253,8 @@ func executeCmd() {
 			switch s[2] {
 			case "final":
 			case "f":
-				contact, _ := contacts.GetValue(state.SelectedContact)
-				payload := contact + " " + s[3]
+				contact, _ := getContact(state.SelectedContact)
+				payload := contact.Connection.ConnectionID + " " + s[3]
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgApproveRequest, payload)
 			case "handle":
 			case "h":
@@ -266,36 +265,35 @@ func executeCmd() {
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgHandleInvitation, payload)
 			case "approve":
 			case "a":
-				contact, _ := contacts.GetValue(state.SelectedContact)
-				payload := contact + " " + s[3]
+				contact, _ := getContact(state.SelectedContact)
+				payload := contact.Connection.ConnectionID + " " + s[3]
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgApproveInvitation, payload)
 			case "create":
 			case "c":
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgCreateInvitation, "")
 			case "router":
 			case "r":
-				contact, _ := contacts.GetValue(state.SelectedContact)
-				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgCreateInvitation, contact)
+				contact, _ := getContact(state.SelectedContact)
+				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgCreateInvitation, contact.Connection.ConnectionID)
 			}
 		case "delete":
 		case "d":
-			contact, _ := contacts.GetValue(state.SelectedContact)
-			payload := contact + " " + s[3]
+			contact, _ := getContact(state.SelectedContact)
+			payload := contact.Connection.ConnectionID + " " + s[3]
 			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgDeleteConnection, payload)
 		case "mediator":
 		case "m":
-			contact, _ := contacts.GetValue(state.SelectedContact)
-			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgAddMediator, contact)
+			contact, _ := getContact(state.SelectedContact)
+			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgAddMediator, contact.Connection.ConnectionID)
 		case "status":
 		case "s":
-			contact, _ := contacts.GetValue(state.SelectedContact)
-			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgGetConnectionStatus, contact)
+			contact, _ := getContact(state.SelectedContact)
+			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgGetConnectionStatus, contact.Connection.ConnectionID)
 		case "chat":
 		case "c":
-			contact, _ := contacts.GetValue(state.SelectedContact)
-			tm := model.NewTextMessage(contact, contact, s[2])
+			contact, _ := getContact(state.SelectedContact)
+			tm := model.NewTextMessage(contact.Connection.ConnectionID, appCfg.ControllerName, s[2])
 			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
-
 		}
 	case "chain", "c":
 		switch s[1] {
@@ -315,8 +313,8 @@ func executeCmd() {
 			// render the payment request
 			RenderPresentationRequest("Please enter the payment request details", r, func(i interface{}) {
 				// when the payment request has been filled get the updated data
-				contact, _ := contacts.GetValue(state.SelectedContact)
-				tm := model.NewTextMessage(contact, contact, helpers.ToJson(i))
+				contact, _ := getContact(state.SelectedContact)
+				tm := model.NewTextMessage(contact.Connection.ConnectionID, appCfg.ControllerName, helpers.ToJson(i))
 				// route the message to the agent
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 			})
@@ -329,9 +327,8 @@ func executeCmd() {
 		case "registration-credential", "rc":
 			r := model.NewRegistrationCredentialRequest("EU")
 			RenderPresentationRequest("Enter registration request", r, func(i interface{}) {
-				// when the payment request has been filled get the updated data
-				contact, _ := contacts.GetValue(state.SelectedContact)
-				tm := model.NewTextMessage(contact, contact, helpers.ToJson(i))
+				contact, _ := getContact(state.SelectedContact)
+				tm := model.NewTextMessage(contact.Connection.ConnectionID, appCfg.ControllerName, helpers.ToJson(i))
 				// route the message to the agent
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 			})
@@ -339,8 +336,8 @@ func executeCmd() {
 			r := model.NewLicenseCredentialRequest("MICAEMI", "EU")
 			RenderPresentationRequest("Enter license request", r, func(i interface{}) {
 				// when the payment request has been filled get the updated data
-				contact, _ := contacts.GetValue(state.SelectedContact)
-				tm := model.NewTextMessage(contact, contact, helpers.ToJson(i))
+				contact, _ := getContact(state.SelectedContact)
+				tm := model.NewTextMessage(contact.Connection.ConnectionID, appCfg.ControllerName, helpers.ToJson(i))
 				// route the message to the agent
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 			})
@@ -360,4 +357,14 @@ func executeCmd() {
 	//	)
 	// reset the command
 	userCommand.Set("")
+}
+
+// getContact helper method to get a contact
+func getContact(id int) (c model.Contact, err error) {
+	i, err := contacts.GetValue(id)
+	if err != nil {
+		return
+	}
+	c = i.(model.Contact)
+	return
 }

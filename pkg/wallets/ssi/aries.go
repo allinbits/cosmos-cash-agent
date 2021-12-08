@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/allinbits/cosmos-cash-agent/pkg/helpers"
 	"github.com/allinbits/cosmos-cash-agent/pkg/model"
 	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -13,6 +14,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -57,6 +59,7 @@ type SSIWallet struct {
 	cloudAgentAPI     string
 	cloudAgentWsURL   string
 	ControllerDID     string
+	ControllerName    string
 	MediatorDID       string
 	w                 *wallet.Wallet
 	ctx               *context.Provider
@@ -230,6 +233,7 @@ func Agent(cfg config.EdgeConfigSchema, pass string) *SSIWallet {
 	return &SSIWallet{
 		cloudAgentURL:     cfg.CloudAgentPublicURL,
 		ControllerDID:     cfg.ControllerDID(),
+		ControllerName:    cfg.ControllerName,
 		cloudAgentWsURL:   cfg.CloudAgentWsURL,
 		cloudAgentAPI:     cfg.CloudAgentAPIURL(),
 		MediatorDID:       cfg.MediatorDID(),
@@ -309,8 +313,27 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			if err != nil {
 				log.Fatalln(err)
 			}
-
-			hub.Notification <- config.NewAppMsg(config.MsgUpdateContacts, connections)
+			// add the missing connections
+			for _, c := range connections {
+				s.w.Add(s.walletAuthToken, wallet.Connection, helpers.RawJson(c))
+			}
+			// retrieve the connections
+			savedConnections, _ := s.w.GetAll(s.walletAuthToken, wallet.Connection)
+			var contacts []interface{}
+			// sort connections
+			keys := make([]string, 0, len(savedConnections))
+			for k := range savedConnections {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				jrmc := savedConnections[k]
+				var c didexchange.Connection
+				json.Unmarshal(jrmc, &c)
+				contacts = append(contacts, model.NewContact(&c))
+			}
+			// send them to the ui
+			hub.Notification <- config.NewAppMsg(config.MsgUpdateContacts, contacts)
 			<-t1.C
 		}
 	}()
@@ -343,7 +366,6 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 				break
 			}
 			log.Debugln("private credential added to the wallet")
-
 		case config.MsgVCData:
 			vcID := m.Payload.(string)
 			vc, err := s.w.Get(s.walletAuthToken, wallet.Credential, vcID)
@@ -361,8 +383,9 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			var inv didexchange.Invitation
 			var jsonStr string
 			if m.Payload.(string) != "" {
+				// TODO: is it correct here the controler name ?
 				inv, err := s.didExchangeClient.CreateInvitation(
-					"bob-alice-connection-1",
+					s.ControllerName,
 					didexchange.WithRouterConnectionID(m.Payload.(string)),
 				)
 				if err != nil {
@@ -374,8 +397,9 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 				hub.Notification <- config.NewAppMsg(config.MsgClipboard, string(jsonStr))
 				fmt.Println(string(jsonStr))
 			} else {
+				// TODO: is it correct here the controler name ?
 				inv, err := s.didExchangeClient.CreateInvitation(
-					"bob-alice-conn-direct",
+					s.ControllerName,
 				)
 				if err != nil {
 					log.Fatalln(err)
@@ -405,8 +429,8 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			log.Infoln("invitation is ", invite)
 			// TODO: validate invitation is correct
 			connection := s.HandleInvitation(invite.Invitation)
-
-			hub.Notification <- config.NewAppMsg(config.MsgContactAdded, connection)
+			s.w.Add(s.walletAuthToken, wallet.Connection, helpers.RawJson(connection))
+			// hub.Notification <- config.NewAppMsg(config.MsgContactAdded, connection)
 		case config.MsgApproveInvitation:
 			log.Debugln(
 				"AgentWallet received MsgHandleInvitation msg for ",
@@ -418,7 +442,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 				err := s.didExchangeClient.AcceptInvitation(
 					params[0],
 					"",
-					"new-with-public-did",
+					s.ControllerName+"-AcceptInvitation",
 					didexchange.WithRouterConnections(params[1]))
 				if err != nil {
 					log.Errorln("AcceptInvitation", err)
@@ -428,7 +452,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 				err := s.didExchangeClient.AcceptInvitation(
 					params[0],
 					"",
-					"new-wth",
+					s.ControllerName + "-AcceptInvitation 2",
 				)
 				if err != nil {
 					log.Errorln("AcceptInvitation", err)
@@ -444,7 +468,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			err := s.didExchangeClient.AcceptExchangeRequest(
 				params[0],
 				"",
-				"new-wth",
+				s.ControllerName + "-AcceptExchangeRequest",
 				didexchange.WithRouterConnections(params[1]),
 			)
 			if err != nil {
@@ -493,7 +517,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			tm := m.Payload.(model.TextMessage)
 			log.Debugln(
 				"AgentWallet received MsgHandleInvitation msg for ",
-				m.Payload.(string),
+				tm.Content,
 			)
 
 			connection, err := s.didExchangeClient.GetConnection(tm.Channel)

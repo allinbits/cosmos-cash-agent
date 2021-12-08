@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/allinbits/cosmos-cash-agent/pkg/config"
+	"github.com/allinbits/cosmos-cash-agent/pkg/model"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -60,7 +61,10 @@ func getMessagesTab() *container.TabItem {
 			return widget.NewLabel("")
 		},
 		func(di binding.DataItem, o fyne.CanvasObject) {
-			o.(*widget.Label).Bind(di.(binding.String))
+			u := di.(binding.Untyped)
+			i, _ := u.Get()
+			c := i.(model.Contact)
+			o.(*widget.Label).SetText(c.TheirLabel)
 		},
 	)
 	list.OnSelected = contactSelected
