@@ -65,6 +65,8 @@ const (
 	MsgDIDAddVerificationMethod
 	// MsgChainAddAddress generate a new address and expose it as a verifiable credential
 	MsgChainAddAddress
+	// MsgChainGetAddresses retrieve the blockchain addresses from the ssi wallet
+	MsgChainGetAddresses
 	// MsgSSIAddVC add a vc to the ssi wallet
 	MsgSSIAddVC
 	// MsgClipboard save stuff into the use clipboard
@@ -73,6 +75,8 @@ const (
 	MsgDeleteConnection
 	// MsgPaymentRequest receive a payment request
 	MsgPaymentRequest
+	// MsgProcessInvitation process an invitation (handle+ accept)
+	MsgProcessInvitation
 )
 
 // AppMsg are messages that are exchanged within the app

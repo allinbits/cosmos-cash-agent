@@ -282,6 +282,9 @@ func (cc *ChainClient) Run(hub *config.MsgHub) {
 					hub.AgentWalletIn <- config.NewAppMsg(config.MsgSSIAddVC, signedVC)
 				}),
 			)
+		case config.MsgChainGetAddresses:
+			envelope := m.Payload.(model.CallableEnvelope)
+			envelope.Callback(cc.acc.String())
 		case config.MsgPaymentRequest:
 			pr := m.Payload.(model.PaymentRequest)
 			// do the payment
