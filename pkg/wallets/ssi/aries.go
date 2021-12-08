@@ -389,7 +389,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			var inv didexchange.Invitation
 			var jsonStr string
 			if m.Payload.(string) != "" {
-				// TODO: is it correct here the controler name ?
+				// TODO: is it correct here the controller name ? seems so
 				inv, err := s.didExchangeClient.CreateInvitation(
 					s.ControllerName,
 					didexchange.WithRouterConnectionID(m.Payload.(string)),
@@ -403,7 +403,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 				hub.Notification <- config.NewAppMsg(config.MsgClipboard, string(jsonStr))
 				fmt.Println(string(jsonStr))
 			} else {
-				// TODO: is it correct here the controler name ?
+				// TODO: is it correct here the controller name ? seems so
 				inv, err := s.didExchangeClient.CreateInvitation(
 					s.ControllerName,
 				)
@@ -448,7 +448,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 				err := s.didExchangeClient.AcceptInvitation(
 					params[0],
 					"",
-					s.ControllerName+"-AcceptInvitation",
+					s.ControllerName,
 					didexchange.WithRouterConnections(params[1]))
 				if err != nil {
 					log.Errorln("AcceptInvitation", err)
@@ -458,7 +458,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 				err := s.didExchangeClient.AcceptInvitation(
 					params[0],
 					"",
-					s.ControllerName+"-AcceptInvitation 2",
+					s.ControllerName,
 				)
 				if err != nil {
 					log.Errorln("AcceptInvitation", err)
@@ -474,7 +474,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			err := s.didExchangeClient.AcceptExchangeRequest(
 				params[0],
 				"",
-				s.ControllerName+"-AcceptExchangeRequest",
+				s.ControllerName,
 				didexchange.WithRouterConnections(params[1]),
 			)
 			if err != nil {
@@ -522,7 +522,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 
 			tm := m.Payload.(model.TextMessage)
 			log.Debugln(
-				"AgentWallet received MsgHandleInvitation msg for ",
+				"AgentWallet received MsgSendText msg for ",
 				tm.Content,
 			)
 
@@ -537,7 +537,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			genericMsg.Type = "https://didcomm.org/generic/1.0/message"
 			genericMsg.Purpose = []string{"meeting", "appointment", "event"}
 			genericMsg.Message = tm.Content
-			genericMsg.From = s.ControllerDID
+			genericMsg.From = s.ControllerName
 			genericMsg.SenderDID = connection.MyDID
 			genericMsg.RecipientDID = connection.TheirDID
 

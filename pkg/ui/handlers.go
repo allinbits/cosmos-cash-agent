@@ -54,14 +54,6 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 	// now load the state
 	helpers.LoadJson(statePath, state)
 
-	// TODO where do we store connections?
-	// now show the contacts
-	//var contactNames []string
-	//for k, _ := range state.Contacts {
-	//	contactNames = append(contactNames, k)
-	//}
-	//contacts.Set(contactNames)
-
 	// now handle the incoming notifications
 	for {
 		m := <-in
@@ -127,9 +119,10 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 
 		case config.MsgTextReceived:
 			tm := m.Payload.(model.TextMessage)
-			contact, _ := state.Contacts[tm.Channel]
-			contact.Texts = append(contact.Texts, tm) // refresh view
-			state.Contacts[tm.Channel] = contact
+			msgHistory, _ := state.Messages[tm.Channel]
+
+			msgHistory = append(msgHistory, tm) // refresh view
+			state.Messages[tm.Channel] = msgHistory
 
 			if pr, isRequest := model.ParsePresentationRequest(tm.Content); isRequest {
 				switch prT := pr.(type) {
@@ -159,7 +152,6 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 				case *model.UserCredentialRequest:
 					req := *prT
 					appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, req)
-
 				default:
 					log.Errorln("unknown presentation request", prT)
 				}
@@ -170,8 +162,8 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 			appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgSaveState, nil)
 
 			// append the message if on focus
-			channel, _ := contacts.GetValue(state.SelectedContact)
-			if tm.Channel == channel || tm.From == appCfg.ControllerName {
+			contact, _ := getContact(state.SelectedContact)
+			if tm.Channel == contact.ConnectionID || tm.From == appCfg.ControllerName {
 				messages.Append(tm.String())
 			}
 		}
@@ -218,20 +210,24 @@ func marketplacesSelected(iID widget.ListItemID) {
 
 // contactSelected gets triggered when an item is selected in the contact list
 func contactSelected(iID widget.ListItemID) {
-	contactData, err := contacts.GetValue(iID)
+
+	contact, err := getContact(iID)
 	if err != nil {
 		log.Errorln("error retrieving contact id ", iID, err)
 		return
 	}
-	contact := contactData.(model.Contact)
+	msgHistory, found := state.Messages[contact.ConnectionID]
+	if !found {
+		msgHistory = make([]model.TextMessage, 0)
+	}
 	//contact, _ := state.Contacts[name]
-	msgs := make([]string, len(contact.Texts))
+	msgs := make([]string, len(msgHistory))
 	for i, msg := range contact.Texts {
 		msgs[i] = msg.String()
 	}
 	messages.Set(msgs)
 	// copy to clipboard the name
-	appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgClipboard, contact.Connection.ConnectionID)
+	appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgClipboard, contact.ConnectionID)
 	// update selected contact index
 	state.SelectedContact = iID
 }
@@ -274,7 +270,7 @@ func executeCmd() {
 			case "router":
 			case "r":
 				contact, _ := getContact(state.SelectedContact)
-				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgCreateInvitation, contact.Connection.ConnectionID)
+				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgCreateInvitation, contact.ConnectionID)
 			}
 		case "delete":
 		case "d":
@@ -283,7 +279,7 @@ func executeCmd() {
 		case "mediator":
 		case "m":
 			contact, _ := getContact(state.SelectedContact)
-			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgAddMediator, contact.Connection.ConnectionID)
+			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgAddMediator, contact.ConnectionID)
 		case "status":
 		case "s":
 			contact, _ := getContact(state.SelectedContact)
@@ -291,7 +287,7 @@ func executeCmd() {
 		case "chat":
 		case "c":
 			contact, _ := getContact(state.SelectedContact)
-			tm := model.NewTextMessage(contact.Connection.ConnectionID, appCfg.ControllerName, s[2])
+			tm := model.NewTextMessage(contact.ConnectionID, appCfg.ControllerName, s[2])
 			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 		}
 	case "chain", "c":
