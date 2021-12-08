@@ -40,18 +40,15 @@ func NewTextMessage(channel, from, content string) TextMessage {
 
 // Contact represent SSI contact
 type Contact struct {
-	DID        string                 `json:"did"`
-	Address    string                 `json:"address"`
-	Name       string                 `json:"name"`
-	Connection didexchange.Connection `json:"connection"`
-	Texts      []TextMessage          `json:"texts"`
+	*didexchange.Connection
+	Channel string        `json:"channel"`
+	Texts   []TextMessage `json:"texts"`
 }
 
-func NewContact(name, didID string, connection didexchange.Connection) Contact {
+func NewContact(connection *didexchange.Connection) Contact {
 	return Contact{
-		DID:        didID,
-		Name:       name,
 		Connection: connection,
+		Channel:    connection.ConnectionID,
 		Texts:      make([]TextMessage, 0),
 	}
 }
@@ -139,7 +136,7 @@ type CallableEnvelope struct {
 	Callback func(message string)
 }
 
-func NewCallableEnvelope(payload interface{}, closure func(message string)) CallableEnvelope{
+func NewCallableEnvelope(payload interface{}, closure func(message string)) CallableEnvelope {
 	return CallableEnvelope{
 		DataIn:   payload,
 		Callback: closure,

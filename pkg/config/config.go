@@ -61,7 +61,7 @@ func (ecs EdgeConfigSchema) ControllerDID() string {
 
 // MediatorDID returns the cloud agent mediator did
 func (ecs EdgeConfigSchema) MediatorDID() string {
-	return "did:cosmos:net:cosmoscash-testnet:mediatortestnetws9"
+	return "did:cosmos:net:cosmoscash-testnet:mediatortestnetws10"
 }
 
 // CloudAgentAPIURL returns the cloud agent mediator did
