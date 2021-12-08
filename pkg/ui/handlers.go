@@ -125,11 +125,24 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 			msgHistory = append(msgHistory, tm) // refresh view
 			state.Messages[tm.Channel] = msgHistory
 
-			// this message was sent by the current user
+			// save the state
+			appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgSaveState, nil)
+
+
+			// append the message if on focus
+			contact, err := getContact(state.SelectedContact)
+			if err != nil {
+				continue
+			}
 			if tm.From == appCfg.ControllerName {
 				messages.Append(tm.String())
+				// do not reprocess outoging messages
 				break
 			}
+			if tm.Channel == contact.ConnectionID {
+				messages.Append(tm.String())
+			}
+
 
 			if pr, isRequest := model.ParsePresentationRequest(tm.Content); isRequest {
 				switch prT := pr.(type) {
@@ -165,14 +178,9 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 
 			}
 
-			// save the state
-			appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgSaveState, nil)
 
-			// append the message if on focus
-			contact, _ := getContact(state.SelectedContact)
-			if tm.Channel == contact.ConnectionID {
-				messages.Append(tm.String())
-			}
+
+
 		}
 	}
 }
@@ -229,7 +237,7 @@ func contactSelected(iID widget.ListItemID) {
 	}
 	//contact, _ := state.Contacts[name]
 	msgs := make([]string, len(msgHistory))
-	for i, msg := range contact.Texts {
+	for i, msg := range msgHistory {
 		msgs[i] = msg.String()
 	}
 	messages.Set(msgs)
@@ -290,6 +298,8 @@ func executeCmd() {
 		case "delete":
 		case "d":
 			contact, _ := getContact(state.SelectedContact)
+			messages.Set([]string{})
+			state.Messages[contact.ConnectionID] = []model.TextMessage{}
 			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgDeleteConnection, contact.ConnectionID)
 		case "mediator":
 		case "m":
@@ -312,7 +322,7 @@ func executeCmd() {
 				RenderPresentationRequest("Please enter the payment request details", r, func(i interface{}) {
 					// when the payment request has been filled get the updated data
 					contact, _ := getContact(state.SelectedContact)
-					tm := model.NewTextMessage(contact.Connection.ConnectionID, appCfg.ControllerName, helpers.ToJson(i))
+					tm := model.NewTextMessage(contact.ConnectionID, appCfg.ControllerName, helpers.ToJson(i))
 					// route the message to the agent
 					appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 				})
@@ -322,18 +332,19 @@ func executeCmd() {
 	case "debug", "d":
 		switch s[1] {
 		case "payment-request", "pr":
-			r := model.NewPaymentRequest("sEUR", "Payment for the services")
-			// TODO: the recipientAddress is selected from the credentials
-			// in this case is the account used for the resolver demo did. see github.com/allinbits/cosmos-cash-misc
-			r.Recipient = "cosmos1lcc4s4qkv0yg7ntmws6v44z5r5py27hap7pfw3"
-			// render the payment request
-			RenderPresentationRequest("Please enter the payment request details", r, func(i interface{}) {
-				// when the payment request has been filled get the updated data
-				contact, _ := getContact(state.SelectedContact)
-				tm := model.NewTextMessage(contact.Connection.ConnectionID, appCfg.ControllerName, helpers.ToJson(i))
-				// route the message to the agent
-				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
-			})
+			// TODO this should be retrieved from the aries credentials not from the chain wallet
+			appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgChainGetAddresses, model.NewCallableEnvelope(nil, func(addr string){
+				r := model.NewPaymentRequest("cash", "Payment for the services")
+				r.Recipient = addr
+				// render the payment request
+				RenderPresentationRequest("Please enter the payment request details", r, func(i interface{}) {
+					// when the payment request has been filled get the updated data
+					contact, _ := getContact(state.SelectedContact)
+					tm := model.NewTextMessage(contact.ConnectionID, appCfg.ControllerName, helpers.ToJson(i))
+					// route the message to the agent
+					appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
+				})
+			}))
 		case "regulator-credential", "rg":
 			r := model.NewRegulatorCredentialRequest(appCfg.ControllerDID())
 			RenderPresentationRequest("Enter regulator data", r, func(i interface{}) {
@@ -344,7 +355,7 @@ func executeCmd() {
 			r := model.NewRegistrationCredentialRequest("EU")
 			RenderPresentationRequest("Enter registration request", r, func(i interface{}) {
 				contact, _ := getContact(state.SelectedContact)
-				tm := model.NewTextMessage(contact.Connection.ConnectionID, appCfg.ControllerName, helpers.ToJson(i))
+				tm := model.NewTextMessage(contact.ConnectionID, appCfg.ControllerName, helpers.ToJson(i))
 				// route the message to the agent
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 			})
@@ -353,17 +364,21 @@ func executeCmd() {
 			RenderPresentationRequest("Enter license request", r, func(i interface{}) {
 				// when the payment request has been filled get the updated data
 				contact, _ := getContact(state.SelectedContact)
-				tm := model.NewTextMessage(contact.Connection.ConnectionID, appCfg.ControllerName, helpers.ToJson(i))
+				tm := model.NewTextMessage(contact.ConnectionID, appCfg.ControllerName, helpers.ToJson(i))
 				// route the message to the agent
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 			})
 		}
+
+	default:
+		if contact, err := getContact(state.SelectedContact); err == nil {
+			tm := model.NewTextMessage(contact.ConnectionID, appCfg.ControllerName, val)
+			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
+			// also record the message locally
+			appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgTextReceived, tm)
+		}
 	}
 
-	if contact, err := getContact(state.SelectedContact); err == nil {
-		tm := model.NewTextMessage(contact.ConnectionID, appCfg.ControllerName, val)
-		appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
-	}
 
 
 }

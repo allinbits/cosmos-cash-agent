@@ -22,7 +22,7 @@ type TextMessage struct {
 }
 
 func (tm TextMessage) String() string {
-	return fmt.Sprintf("%s\n%10s | %s", tm.ProcessedAt.Format(time.RFC822), tm.From, tm.Content)
+	return fmt.Sprintf("%s | %s > %s", tm.ProcessedAt.Format(time.Kitchen), tm.From, tm.Content)
 }
 
 func NewTextMessageWithTime(channel, from, content string, processedAt time.Time) TextMessage {

@@ -419,13 +419,51 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			log.Debugln("invitation is", inv)
 
 			hub.Notification <- config.NewAppMsg(config.MsgUpdateContact, string(jsonStr))
+			//case config.MsgProcessInvitation:
+			//
+			//	// first invitation
+			//	log.Debugln(
+			//		"AgentWallet received MsgProcessInvitation msg for ",
+			//		m.Payload,
+			//	)
+			//	invite := m.Payload.(de.CreateInvitationResponse)
+			//	reqURL = fmt.Sprint(
+			//		s.cloudAgentAPI,
+			//		fmt.Sprintf("/connections/create-invitation?public=%s&label=TDMMediatorEdgeAgent", s.MediatorDID),
+			//	)
+			//	post(client, reqURL, nil, &invite)
+			//	connection := s.HandleInvitation(invite.Invitation)
+			//	s.w.Add(s.walletAuthToken, wallet.Connection, helpers.RawJson(connection))
+			//	// then find the connection id for the mediator
+			//	connections, err := s.didExchangeClient.QueryConnections(&didexchange.QueryConnectionsParams{})
+			//	if err != nil {
+			//		log.Fatalln(err)
+			//	}
+			//
+			//	var mediatorConnnectionID string
+			//	for _, c := range connections {
+			//		routerConfig, _ := s.routeClient.GetConfig(c.ConnectionID)
+			//		if routerConfig != nil {
+			//			mediatorConnnectionID = c.ConnectionID
+			//			break
+			//		}
+			//	}
+			//	err = s.didExchangeClient.AcceptInvitation(
+			//		mediatorConnnectionID,
+			//		"",
+			//		s.ControllerName,
+			//		didexchange.WithRouterConnections(mediatorConnnectionID))
+			//	if err != nil {
+			//		log.Errorln("AcceptInvitation", err)
+			//		break
+			//	}
 		case config.MsgHandleInvitation:
 			log.Debugln(
 				"AgentWallet received MsgHandleInvitation msg for ",
 				m.Payload.(string),
 			)
-			var invite de.CreateInvitationResponse
 
+			var invite de.CreateInvitationResponse
 			if err := json.Unmarshal([]byte(m.Payload.(string)), &invite.Invitation); err != nil {
 				log.Errorln("error unmarshalling the invitation in HsgHandleInvitation, requesting a new one")
 
@@ -442,7 +480,7 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 			// hub.Notification <- config.NewAppMsg(config.MsgContactAdded, connection)
 		case config.MsgApproveInvitation:
 			log.Debugln(
-				"AgentWallet received MsgHandleInvitation msg for ",
+				"AgentWallet received MsgApproveInvitation msg for ",
 				m.Payload.(string),
 			)
 			params := strings.Split(m.Payload.(string), " ")
