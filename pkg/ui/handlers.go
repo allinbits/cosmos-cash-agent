@@ -130,7 +130,6 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 			// save the state
 			appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgSaveState, nil)
 
-
 			// append the message if on focus
 			contact, err := getContact(state.SelectedContact)
 			if err != nil {
@@ -144,7 +143,6 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 			if tm.Channel == contact.ConnectionID {
 				messages.Append(tm.String())
 			}
-
 
 			if pr, isRequest := model.ParsePresentationRequest(tm.Content); isRequest {
 				switch prT := pr.(type) {
@@ -176,22 +174,24 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 					RenderRequestConfirmation(fmt.Sprintf("E-Money application from %s", tm.From), req,
 						func(pr model.PresentationRequest) {
 							apr := pr.(model.EMoneyApplicationRequest)
-							model.NewPoKYCCredential(appCfg.ControllerDID(), apr.SubjectDID, apr)
-
-							//ul, _ := contacts.Get()
-							//for _, u := range ul {
-							//	c := u.(model.Contact)
-							//	// find the channel
-							//	if c.ConnectionID == tm.Channel {
-							//		model.NewPoKYCCredential(req)
-							//	}
-							//}
-
-
-
+							c := model.NewPoKYCCredential(appCfg.ControllerDID(), apr.SubjectDID, apr)
+							appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, c)
+							appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText,
+								model.NewTextMessage(tm.Channel,
+									appCfg.ControllerName,
+									"Your application has been accepted! welcome! (check your credentials for confirmation)",
+								))
+							appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText,
+								model.NewTextMessage(tm.Channel,
+									appCfg.ControllerName,
+									"you can now send a request for funds",
+								))
 						}, func(pr model.PresentationRequest) {
-							// TODO: send a message on the chat that the request has been aborted
-							log.WithFields(log.Fields{"recipient": req.Amount}).Infoln("application refused ")
+							appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText,
+								model.NewTextMessage(tm.Channel,
+									appCfg.ControllerName,
+									"We are sorry to inform you that the application has not been accepted.",
+								))
 						})
 					appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, req)
 				default:
@@ -199,9 +199,6 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 				}
 
 			}
-
-
-
 
 		}
 	}
@@ -355,7 +352,7 @@ func executeCmd() {
 		switch s[1] {
 		case "payment-request", "pr":
 			// TODO this should be retrieved from the aries credentials not from the chain wallet
-			appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgChainGetAddresses, model.NewCallableEnvelope(nil, func(addr string){
+			appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgChainGetAddresses, model.NewCallableEnvelope(nil, func(addr string) {
 				r := model.NewPaymentRequest("cash", "Payment for the services")
 				r.Recipient = addr
 				// render the payment request
@@ -392,7 +389,7 @@ func executeCmd() {
 			})
 		case "emoney-application", "ea":
 			r := model.NewEMoneyApplicationRequest(appCfg.ControllerDID())
-			RenderPresentationRequest("Enter E-Money request details", r , func(i interface{}){
+			RenderPresentationRequest("Enter E-Money request details", r, func(i interface{}) {
 				rF := i.(model.EMoneyApplicationRequest)
 				contact, _ := getContact(state.SelectedContact)
 				// calculate the "ZKP"
@@ -418,8 +415,6 @@ func executeCmd() {
 			appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgTextReceived, tm)
 		}
 	}
-
-
 
 }
 
