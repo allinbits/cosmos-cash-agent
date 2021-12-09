@@ -87,15 +87,16 @@ type RegistrationCredentialRequest struct {
 	Country    string `json:"country" cash_label:"Country" cash_hint:"the country of operation for the e-money token provider"`
 	Name       string `json:"name" cash_label:"Organization name" cash_hint:"name of the e-money token provider organization"`
 	ShortName  string `json:"short_name" cash_label:"Organization short name" cash_hint:"short name of the e-money token provider organization"`
+	SubjectDID string `json:"subject_did" cash_label:"Subject DID" cash_hint:"the cosmos DID to issue the credential to" cash_ro:"true"`
 }
 
 func (r RegistrationCredentialRequest) ExpectedCredential() string {
 	return r.Credential
 }
 
-func NewRegistrationCredentialRequest(country string) RegistrationCredentialRequest {
+func NewRegistrationCredentialRequest(subjectDID string) RegistrationCredentialRequest {
 	return RegistrationCredentialRequest{
-		Country:    country,
+		SubjectDID: subjectDID,
 		Credential: "RegistrationCredential",
 	}
 }

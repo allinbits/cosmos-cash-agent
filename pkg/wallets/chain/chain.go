@@ -108,7 +108,8 @@ func Client(cfg config.EdgeConfigSchema, password string) *ChainClient {
 	factory := tx.NewFactoryCLI(initClientCtx, pf).
 		WithChainID(initClientCtx.ChainID).
 		WithAccountRetriever(initClientCtx.AccountRetriever).
-		WithKeybase(initClientCtx.Keyring)
+		WithKeybase(initClientCtx.Keyring).
+		WithGas(1000000)
 
 	cc := ChainClient{
 		ctx: initClientCtx,
@@ -293,10 +294,12 @@ func (cc *ChainClient) Run(hub *config.MsgHub) {
 			recipient, err := sdk.AccAddressFromBech32(pr.Recipient)
 			if err != nil {
 				log.Errorln(err)
+				break
 			}
 			amount, err := sdk.ParseCoinNormalized(fmt.Sprintf("%v%s", pr.Amount, pr.Denom))
 			if err != nil {
 				log.Errorln(err)
+				break
 			}
 			msg := banktypes.NewMsgSend(cc.acc, recipient, sdk.Coins{amount})
 			txHash := cc.BroadcastTx(msg)

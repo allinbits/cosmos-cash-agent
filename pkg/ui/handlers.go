@@ -105,15 +105,6 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 				mks = append(mks, c.GetId())
 			}
 			marketplaces.Set(mks)
-		//case config.MsgContactAdded:
-		//	newContact := m.Payload.(*didexchange.Connection)
-		//	contact := model.NewContact(*newContact)
-		//	state.Contacts[contact.Connection.ConnectionID] = contact
-		//	// update the model
-		//	contacts.Append(newContact.ConnectionID)
-		//	// request state save
-		//	//appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgSaveState, nil)
-
 		case config.MsgUpdateContacts:
 			contacts.Set(m.Payload.([]interface{}))
 		case config.MsgUpdateContact:
@@ -175,7 +166,28 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 					appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, req)
 				case *model.RegistrationCredentialRequest:
 					req := *prT
-					appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, req)
+					RenderRequestConfirmation(fmt.Sprintf("Registration application from %s", tm.From), req,
+						func(pr model.PresentationRequest) {
+							apr := pr.(model.RegistrationCredentialRequest)
+							c := model.NewRegistrationCredential(appCfg.ControllerDID(), req.SubjectDID, apr)
+							appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, c)
+							appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText,
+								model.NewTextMessage(tm.Channel,
+									appCfg.ControllerName,
+									"Your registration has been accepted, check your credentials for confirmation",
+								))
+							appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText,
+								model.NewTextMessage(tm.Channel,
+									appCfg.ControllerName,
+									"Unfortunately your registration has been denied",
+								))
+						}, func(pr model.PresentationRequest) {
+							appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText,
+								model.NewTextMessage(tm.Channel,
+									appCfg.ControllerName,
+									"Wme are sorry to inform you that the application has not been accepted.",
+								))
+						})
 				case *model.LicenseCredentialRequest:
 					req := *prT
 					appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, req)
