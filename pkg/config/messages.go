@@ -75,8 +75,8 @@ const (
 	MsgDeleteConnection
 	// MsgPaymentRequest receive a payment request
 	MsgPaymentRequest
-	// MsgProcessInvitation process an invitation (handle+ accept)
-	MsgProcessInvitation
+	// MsgClearCredentials clear credentials from the local wallet
+	MsgClearCredentials
 )
 
 // AppMsg are messages that are exchanged within the app

@@ -603,7 +603,13 @@ func (s *SSIWallet) Run(hub *config.MsgHub) {
 					s.didExchangeClient.RemoveConnection(c.ConnectionID)
 				}
 			}
+		case config.MsgClearCredentials:
+			creds, _ := s.w.GetAll(s.walletAuthToken, wallet.Credential)
+			for k := range creds {
+				s.w.Remove(s.walletAuthToken, wallet.Credential, k)
+			}
 		}
+
 	}
 }
 

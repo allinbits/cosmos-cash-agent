@@ -427,6 +427,8 @@ func executeCmd() {
 				// for debug purposes:
 				// appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgTextReceived, tm)
 			})
+		case "clear-credentials", "cc":
+			appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgClearCredentials, nil)
 
 		}
 
