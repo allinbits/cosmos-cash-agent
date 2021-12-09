@@ -175,6 +175,9 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 					req := *prT
 					RenderRequestConfirmation(fmt.Sprintf("E-Money application from %s", tm.From), req,
 						func(pr model.PresentationRequest) {
+							apr := pr.(model.EMoneyApplicationRequest)
+							model.NewPoKYCCredential(appCfg.ControllerDID(), apr.SubjectDID, apr)
+
 							//ul, _ := contacts.Get()
 							//for _, u := range ul {
 							//	c := u.(model.Contact)
@@ -388,7 +391,7 @@ func executeCmd() {
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 			})
 		case "emoney-application", "ea":
-			r := model.NewEMoneyApplicationRequest()
+			r := model.NewEMoneyApplicationRequest(appCfg.ControllerDID())
 			RenderPresentationRequest("Enter E-Money request details", r , func(i interface{}){
 				rF := i.(model.EMoneyApplicationRequest)
 				contact, _ := getContact(state.SelectedContact)
