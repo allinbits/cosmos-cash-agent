@@ -29,7 +29,7 @@ func NewNotifier(ctx *context.Provider, RuntimeMsgs *config.MsgHub) *LocalNotifi
 
 // Notify handlers all incoming message events.
 func (n LocalNotifier) Notify(topic string, message []byte) error {
-	log.Infoln("local notification:", topic, message)
+	log.Infof("received notification: %s: %s", topic, message)
 
 	var genericMsg struct {
 		TheirDID   string         `json:"theirdid"`

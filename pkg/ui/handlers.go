@@ -156,9 +156,19 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 							// TODO: send payment via token wallet
 							log.WithFields(log.Fields{"recipient": paymentReq.Recipient}).Infoln("payment approved")
 							appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgPaymentRequest, paymentReq)
+							appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText,
+								model.NewTextMessage(tm.Channel,
+									appCfg.ControllerName,
+									fmt.Sprintf("payment request accepted, you should receive %v%s shortly", paymentReq.Amount, paymentReq.Denom),
+								))
 						}, func(pr model.PresentationRequest) {
 							// TODO: send a message on the chat that the request has been aborted
-							log.WithFields(log.Fields{"recipient": paymentReq.Recipient}).Infoln("payment refused ")
+							log.WithFields(log.Fields{"recipient": paymentReq.Recipient}).Infoln("payment denied")
+							appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText,
+								model.NewTextMessage(tm.Channel,
+									appCfg.ControllerName,
+									fmt.Sprintf("unfortunately your payment request of %v%s has been denied", paymentReq.Amount, paymentReq.Denom),
+								))
 						})
 				case *model.RegulatorCredentialRequest:
 					req := *prT
@@ -184,16 +194,15 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 							appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText,
 								model.NewTextMessage(tm.Channel,
 									appCfg.ControllerName,
-									"you can now send a request for funds",
+									"Once you receive your credential, you can send a request for tokens",
 								))
 						}, func(pr model.PresentationRequest) {
 							appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText,
 								model.NewTextMessage(tm.Channel,
 									appCfg.ControllerName,
-									"We are sorry to inform you that the application has not been accepted.",
+									"Wme are sorry to inform you that the application has not been accepted.",
 								))
 						})
-					appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, req)
 				default:
 					log.Errorln("unknown presentation request", prT)
 				}
@@ -403,6 +412,8 @@ func executeCmd() {
 				// now send the stuff
 				tm := model.NewTextMessage(contact.ConnectionID, appCfg.ControllerName, helpers.ToJson(rF))
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
+				// for debug purposes:
+				// appCfg.RuntimeMsgs.Notification <- config.NewAppMsg(config.MsgTextReceived, tm)
 			})
 
 		}

@@ -7,6 +7,8 @@ import (
 	"github.com/allinbits/cosmos-cash-agent/pkg/config"
 	"github.com/allinbits/cosmos-cash-agent/pkg/helpers"
 	"github.com/allinbits/cosmos-cash-agent/pkg/model"
+	issuerTypes "github.com/allinbits/cosmos-cash/v2/x/issuer/types"
+	regulatorTypes "github.com/allinbits/cosmos-cash/v2/x/regulator/types"
 	vcTypes "github.com/allinbits/cosmos-cash/v2/x/verifiable-credential/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"google.golang.org/grpc"
@@ -306,11 +308,26 @@ func (cc *ChainClient) Run(hub *config.MsgHub) {
 				}),
 			)
 		case config.MsgIssueVC:
+
 			vc := m.Payload.(vcTypes.VerifiableCredential)
-			// save the payment result to a verifiable credential
-			msg := vcTypes.NewMsgIssueCredential(vc, cc.acc.String())
+			signedVC, err := vc.Sign(cc.fct.Keybase(), cc.acc, vc.GetIssuerDID().NewVerificationMethodID(cc.acc.String()))
+			if err != nil {
+				log.Errorln("error signing public verifiable credential", err)
+			}
+
+			var msg sdk.Msg
+			switch vc.GetCredentialSubject().(type) {
+			case *vcTypes.VerifiableCredential_UserCred:
+				msg = issuerTypes.NewMsgIssueUserCredential(signedVC, cc.acc.String())
+			case *vcTypes.VerifiableCredential_LicenseCred:
+				msg = regulatorTypes.NewMsgIssueLicenseCredential(signedVC, cc.acc.String())
+			case *vcTypes.VerifiableCredential_RegistrationCred:
+				msg = regulatorTypes.NewMsgIssueRegistrationCredential(signedVC, cc.acc.String())
+			case *vcTypes.VerifiableCredential_RegulatorCred:
+				msg = regulatorTypes.NewMsgIssueRegulatorCredential(signedVC, cc.acc.String())
+			}
 			txHash := cc.BroadcastTx(msg)
-			log.Println("transaction hash", txHash)
+			log.WithFields(log.Fields{"json": helpers.ToJson(vc)}).Println("transaction hash", txHash)
 		}
 	}
 }
