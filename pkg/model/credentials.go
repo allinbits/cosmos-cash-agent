@@ -97,7 +97,7 @@ func NewLicenseCredential(issuerDID, subjectDID string, cr LicenseCredentialRequ
 	)
 }
 
-func NewPoKYCCredential(issuerDID, subjectDID string, cr UserCredentialRequest) vcTypes.VerifiableCredential {
+func NewPoKYCCredential(issuerDID, subjectDID string, cr EMoneyApplicationRequest) vcTypes.VerifiableCredential {
 	return vcTypes.NewUserVerifiableCredential(
 		fmt.Sprintf("PoKYC:%s", subjectDID),
 		issuerDID,

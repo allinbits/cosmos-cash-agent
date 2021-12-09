@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/wealdtech/go-merkletree"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -169,8 +171,25 @@ func dispatcher(window fyne.Window, in chan config.AppMsg) {
 				case *model.LicenseCredentialRequest:
 					req := *prT
 					appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, req)
-				case *model.UserCredentialRequest:
+				case *model.EMoneyApplicationRequest:
 					req := *prT
+					RenderRequestConfirmation(fmt.Sprintf("E-Money application from %s", tm.From), req,
+						func(pr model.PresentationRequest) {
+							//ul, _ := contacts.Get()
+							//for _, u := range ul {
+							//	c := u.(model.Contact)
+							//	// find the channel
+							//	if c.ConnectionID == tm.Channel {
+							//		model.NewPoKYCCredential(req)
+							//	}
+							//}
+
+
+
+						}, func(pr model.PresentationRequest) {
+							// TODO: send a message on the chat that the request has been aborted
+							log.WithFields(log.Fields{"recipient": req.Amount}).Infoln("application refused ")
+						})
 					appCfg.RuntimeMsgs.TokenWalletIn <- config.NewAppMsg(config.MsgIssueVC, req)
 				default:
 					log.Errorln("unknown presentation request", prT)
@@ -368,6 +387,24 @@ func executeCmd() {
 				// route the message to the agent
 				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
 			})
+		case "emoney-application", "ea":
+			r := model.NewEMoneyApplicationRequest()
+			RenderPresentationRequest("Enter E-Money request details", r , func(i interface{}){
+				rF := i.(model.EMoneyApplicationRequest)
+				contact, _ := getContact(state.SelectedContact)
+				// calculate the "ZKP"
+				data := [][]byte{
+					[]byte(rF.Name),
+					[]byte(rF.Surname),
+					[]byte(rF.Age),
+				}
+				tree, _ := merkletree.NewUsing(data, vcTypes.New("whatever"), nil)
+				rF.ZKP = hex.EncodeToString(tree.Root())
+				// now send the stuff
+				tm := model.NewTextMessage(contact.ConnectionID, appCfg.ControllerName, helpers.ToJson(rF))
+				appCfg.RuntimeMsgs.AgentWalletIn <- config.NewAppMsg(config.MsgSendText, tm)
+			})
+
 		}
 
 	default:
