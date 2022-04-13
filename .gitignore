@@ -10,3 +10,7 @@
 vendor
 
 app.log
+
+# generated docs
+/site
+/docs/assets/diagrams/out/
