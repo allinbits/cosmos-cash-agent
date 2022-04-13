@@ -1,0 +1,162 @@
+@startuml
+title Interactions
+footer Cosmos Cash: https://github.com/allinbits/cosmos-cash-agent
+
+participant "Root of Trust"  as rot
+participant "Regulator" as reg
+participant "E-Money token provider" as emt
+participant "User" as user1
+participant "eIDAS" as eidas
+participant "3d party" as user2
+
+
+autonumber 1.0
+reg -[#0000FF]> reg: Creatae DID document
+
+== Definition of regulators ==
+
+autonumber 1.1
+rot -[#0000FF]> reg: Issue regulator credential
+autonumber stop
+
+== Registration and licensing of a CASP ==
+
+
+
+emt -[#0000FF]> emt: Create DID document
+
+emt -> reg: Establish DIDComm channel via DID exchange
+
+group Registration
+
+autonumber 2.1
+
+emt -> reg: Apply for Registration Credential
+emt <- reg: Request Registration Credential presentation
+emt -> reg: Send Registration Credential presentation
+emt <[#0000FF]- reg: Issue Registration Credential
+
+autonumber stop
+
+end
+
+
+group License
+
+autonumber 3.1
+
+emt -> reg: Apply for License Credential
+emt <- reg: Request License Credential presentation
+emt -> reg: Send License Credential presentation
+emt <[#0000FF]- reg: Issue License Credential
+
+autonumber stop
+
+end
+
+emt -[#0000FF]> emt: Self-issue proof of KYC (PoKYC) credential
+
+
+== User Identity ==
+
+eidas -[#0000FF]> eidas: Create DID
+
+user1 o-> eidas: Establish DIDComm Channel via DID Exchange
+
+
+loop Repeat for all users
+
+autonumber 4.1
+
+user1 -> eidas: Apply for Identity Credential
+user1 <- eidas: Request Identity Credential presentation
+user1 -> eidas: Send Identity Credential presentation
+user1 <- eidas: Issue Identity Credential
+
+autonumber stop
+
+end
+
+== E-Money Issuance ==
+
+user1 -[#0000FF]> user1: Create DID
+user1 o-> emt: Establish DIDComm Channel via DID Exchange
+
+group Proof of KYC Issuance
+
+autonumber 5.1
+
+user1 -> emt: Apply for elegibility
+user1 <- emt: Request Identity Credential
+user1 -> emt: Send Proof of Identity Credential presentation (Selective disclosure)
+emt --> eidas: Verify Proof of Identity
+emt -[#0000FF]> user1: Issue Proof of KYC (PoKYC) Credential
+
+autonumber stop
+
+end
+
+
+group Token Issuance
+
+autonumber 6.1
+
+user1 -> emt: Send Payment Credential Presentation
+emt --> emt: Accept Payment Credential Request
+emt -[#0000FF]> emt: Mint Tokens
+emt -[#0000FF]> user1: Transfer tokens to the address (from Payment Credential)
+user1 -> emt: Send Proof of Identity Credential presentation (Selective disclosure)
+emt -> user1: Send Payment Receipt Credential
+emt -> emt: Store a copy of the Payment Receipt Credential
+
+
+autonumber stop
+
+end
+
+
+== Token Transactions ==
+
+user2 -[#0000FF]> user2: Create DID
+user1 o-> user2: Establish DIDComm Channel via DID Exchange
+
+group Payment request (Un-licensed token)
+
+autonumber 7.1
+
+user2 -> user1: Send Payment Credential Presentation
+user1 --> user1: Accept Payment Credential Request
+user1 -[#0000FF]> user2: Transfer tokens to the address (from Payment Credential)
+user1 -> user2: Send Payment Receipt Credential
+user1 -> user1: Store a copy of the Payment Receipt Credential
+
+
+autonumber stop
+
+end
+
+
+group Payment request (Licensed token)
+
+autonumber 7.1
+
+user2 -> user1: Send Payment Credential Presentation
+user1 --> user1: Accept Payment Credential Request
+user1 -[#0000FF]> user2: Transfer tokens to the address (from Payment Credential)
+note right
+  The transfer is validated by the nodes of the network:
+  if the token denom transferred is in the set of licensed tokens,
+  the nodes will verify the existence of a PoKYC for both
+  the sender and the recipient of the transaction.
+end note
+user1 -> user2: Send Payment Receipt Credential
+user1 -> user1: Store a copy of the Payment Receipt Credential
+
+
+autonumber stop
+
+end
+
+== ==
+
+@enduml
